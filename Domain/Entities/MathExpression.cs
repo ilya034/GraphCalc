@@ -14,6 +14,7 @@ public class MathExpression : Entity
     }
 
     public string Text { get; private set; }
+    public string VariableName => variables.FirstOrDefault()?.Name ?? "x";
     public string? Name { get; private set; }
     public IReadOnlyList<Variable> Variables => variables.AsReadOnly();
 

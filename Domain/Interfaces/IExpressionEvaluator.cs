@@ -6,5 +6,4 @@ public interface IExpressionEvaluator
 {
     double Evaluate(MathExpression expression, double variableValue);
     IEnumerable<double> EvaluateBatch(MathExpression expression, IEnumerable<double> variableValues);
-    bool Validate(MathExpression expression);
 }
