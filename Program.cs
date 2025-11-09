@@ -8,14 +8,14 @@ public class Program
     {
         var ast = new BinaryOperationNode(
             Left: new FunctionCallNode(
-                FunctionName: "max",
+                FunctionName: "min",
                 Arguments: new List<IExpressionNode> { new VariableNode("y"), new NumericLiteralNode(4) }
             ),
             Right: new FunctionCallNode(
-                FunctionName: "sin",
+                FunctionName: "sqrt",
                 Arguments: new List<IExpressionNode> { new VariableNode("x") }
             ),
-            Operator: OperatorType.Multiply
+            Operator: OperatorType.Sqrt
         );
         var expression = new Expression(Guid.NewGuid(), "max(y, 4) * sin(x)", ast);
 
@@ -23,7 +23,7 @@ public class Program
         // Это делает код более явным и доменно-ориентированным.
         var variables = new List<Variable>
         {
-            new Variable("x", Math.PI / 2),
+            new Variable("x", 4),
             new Variable("y", 3)
         };
         Console.WriteLine($"Вычисляем для x = {variables[0].Value}, y = {variables[1].Value}");
