@@ -1,4 +1,3 @@
-using System.Drawing;
 using GraphCalc.Domain.Common;
 using GraphCalc.Domain.ValueObjects;
 
@@ -6,7 +5,7 @@ namespace GraphCalc.Domain.Entities;
 
 public class Graph : Entity
 {
-    private readonly List<Point> points = new();
+    private readonly List<MathPoint> points = new();
 
     private Graph(Guid id, MathExpression expression, string independentVariable, GraphStyle style)
         : base(id)
@@ -20,9 +19,9 @@ public class Graph : Entity
     public MathExpression Expression { get; private set; }
     public string IndependentVariable { get; private init; }
     public GraphStyle Style { get; private set; }
-    public Range? Range { get; private set; }
+    public NumericRange? Range { get; private set; }
     public bool IsVisible { get; private set; }
-    public IReadOnlyList<Point> Points => points.AsReadOnly();
+    public IReadOnlyList<MathPoint> Points => points.AsReadOnly();
 
     public static Graph Create(
         MathExpression expression,
@@ -34,7 +33,7 @@ public class Graph : Entity
                 independentVariable,
                 style ?? GraphStyle.Default);
 
-    public Graph WithRange(Range range)
+    public Graph WithRange(NumericRange range)
     {
         Range = range;
         return this;
@@ -46,25 +45,7 @@ public class Graph : Entity
         return this;
     }
 
-    public Graph Show()
-    {
-        IsVisible = true;
-        return this;
-    }
-
-    public Graph Hide()
-    {
-        IsVisible = false;
-        return this;
-    }
-
-    public Graph ToggleVisibility()
-    {
-        IsVisible = !IsVisible;
-        return this;
-    }
-
-    public Graph SetPoints(IEnumerable<Point> points)
+    public Graph SetPoints(IEnumerable<MathPoint> points)
     {
         this.points.Clear();
         this.points.AddRange(points);
