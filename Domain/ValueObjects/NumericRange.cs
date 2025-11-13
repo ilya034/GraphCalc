@@ -15,11 +15,11 @@ public sealed record NumericRange
 
     public static NumericRange Create(double min, double max, double? step = null)
     {
-        if (double.IsNaN(min))
-            throw new ArgumentException("Min must be a valid number");
+        if (double.IsNaN(min) || double.IsInfinity(min))
+            throw new ArgumentException("Min must be a valid finite number");
 
-        if (double.IsNaN(max))
-            throw new ArgumentException("Max must be a valid number");
+        if (double.IsNaN(max) || double.IsInfinity(max))
+            throw new ArgumentException("Max must be a valid finite number");
 
         if (min >= max)
             throw new ArgumentException("Min must be less than Max");
@@ -35,7 +35,7 @@ public sealed record NumericRange
             yield return value;
     }
 
-    public int PointCount => (int)Math.Ceiling((Max - Min) / Step) + 1;
+    public int PointCount => (int)Math.Floor((Max - Min) / Step) + 1;
 
     public NumericRange WithMin(double min) => Create(min, Max, Step);
     public NumericRange WithMax(double max) => Create(Min, max, Step);
