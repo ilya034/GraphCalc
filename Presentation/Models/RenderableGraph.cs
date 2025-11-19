@@ -2,9 +2,6 @@ using System.Drawing;
 
 namespace GraphCalc.Presentation.Models;
 
-/// <summary>
-/// Presentation model for rendering a graph on screen.
-/// </summary>
 public class RenderableGraph
 {
     public Guid Id { get; init; }
@@ -13,7 +10,7 @@ public class RenderableGraph
     public bool IsVisible { get; init; } = true;
     public Color StrokeColor { get; init; } = Color.Black;
     public float StrokeWidth { get; init; } = 1f;
-    //public LineStyle LineStyle { get; init; } = LineStyle.Solid;
+    public LineStyle LineStyle { get; init; } = LineStyle.Solid;
     public bool ShowPoints { get; init; } = false;
     public float PointSize { get; init; } = 3f;
     public int ZIndex { get; init; } = 0;

@@ -12,13 +12,11 @@ public class Graph : Entity
     {
         Expression = expression;
         IndependentVariable = independentVariable;
-        IsVisible = true;
     }
 
     public MathExpression Expression { get; private set; }
     public string IndependentVariable { get; private init; }
     public NumericRange? Range { get; private set; }
-    public bool IsVisible { get; private set; }
     public IReadOnlyList<MathPoint> Points => points.AsReadOnly();
 
     public static Graph Create(
