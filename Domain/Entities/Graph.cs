@@ -7,41 +7,31 @@ public class Graph : Entity
 {
     private readonly List<MathPoint> points = new();
 
-    private Graph(Guid id, MathExpression expression, string independentVariable, GraphStyle style)
+    private Graph(Guid id, MathExpression expression, string independentVariable)
         : base(id)
     {
         Expression = expression;
         IndependentVariable = independentVariable;
-        Style = style;
         IsVisible = true;
     }
 
     public MathExpression Expression { get; private set; }
     public string IndependentVariable { get; private init; }
-    public GraphStyle Style { get; private set; }
     public NumericRange? Range { get; private set; }
     public bool IsVisible { get; private set; }
     public IReadOnlyList<MathPoint> Points => points.AsReadOnly();
 
     public static Graph Create(
         MathExpression expression,
-        string independentVariable,
-        GraphStyle? style = null)
+        string independentVariable)
          => new Graph(
                 Guid.NewGuid(),
                 expression,
-                independentVariable,
-                style ?? GraphStyle.Default);
+                independentVariable);
 
     public Graph WithRange(NumericRange range)
     {
         Range = range;
-        return this;
-    }
-
-    public Graph WithStyle(GraphStyle style)
-    {
-        Style = style;
         return this;
     }
 

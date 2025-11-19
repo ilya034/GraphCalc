@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace GraphCalc.Domain.ValueObjects;
+namespace GraphCalc.Presentation.Models;
 
 public record GraphStyle
 {
@@ -58,12 +58,4 @@ public record GraphStyle
         lineStyle: LineStyle.Solid,
         showPoints: false,
         pointSize: 3.0);
-}
-
-public enum LineStyle
-{
-    Solid,
-    Dashed,
-    Dotted,
-    DashDot
 }
