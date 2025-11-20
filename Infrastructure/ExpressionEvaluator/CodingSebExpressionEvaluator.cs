@@ -47,15 +47,8 @@ public sealed class CodingSebExpressionEvaluator : IExpressionEvaluator
 
         foreach (var value in variableValues)
         {
-            try
-            {
-                var result = Evaluate(expression, value);
-                results.Add(result);
-            }
-            catch (ExpressionEvaluatorSyntaxErrorException)
-            {
-                results.Add(double.NaN); 
-            }
+            var result = Evaluate(expression, value);
+            results.Add(result);
         }
 
         return results;
