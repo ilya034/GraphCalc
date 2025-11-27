@@ -2,13 +2,7 @@ using GraphCalc.Domain.Entities;
 
 namespace GraphCalc.Domain.Interfaces;
 
-public interface IGraphRepository
+public interface IGraphRepository : IRepository<Graph>
 {
-    Graph Add(Graph graph);
-    Graph Update(Graph graph);
-    Graph? GetById(Guid id);
-    IEnumerable<Graph> GetByExpression(Guid expressionId);
-    IEnumerable<Graph> GetAll();
-    bool Remove(Guid id);
-    void Clear();
+    IEnumerable<Graph> GetByExpressionText(string expressionText);
 }
