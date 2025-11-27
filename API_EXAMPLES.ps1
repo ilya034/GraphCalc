@@ -42,7 +42,7 @@ $response2 = Invoke-RestMethod -Uri "$BaseUrl/calculate-and-save" `
     -ContentType "application/json" `
     -Body $body2
 
-$response2 | ConvertTo-Json | Write-Host
+# $response2 | ConvertTo-Json | Write-Host
 $graphId = $response2.id
 Write-Host "Saved graph ID: $graphId" -ForegroundColor Yellow
 Write-Host ""
@@ -64,7 +64,7 @@ $response3 = Invoke-RestMethod -Uri "$BaseUrl/calculate-and-save" `
     -ContentType "application/json" `
     -Body $body3
 
-$response3 | ConvertTo-Json | Write-Host
+# $response3 | ConvertTo-Json | Write-Host
 $graphId2 = $response3.id
 Write-Host "Saved graph ID: $graphId2" -ForegroundColor Yellow
 Write-Host ""
