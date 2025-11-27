@@ -6,7 +6,7 @@ public interface IRepository<T> where T : Entity
 {
     T? GetById(Guid id);
     IReadOnlyList<T> GetAll();
-    void Add(T entity);
-    void Update(T entity);
-    void Delete(Guid id);
+    bool Add(T entity);
+    bool Update(T entity);
+    bool Delete(Guid id);
 }
