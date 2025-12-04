@@ -2,12 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using GraphCalc.Api.Dtos;
 using GraphCalc.Infrastructure.Repositories;
 using GraphCalc.Domain.Interfaces;
-using GraphCalc.Domain.Entities;
+using DomainUser = GraphCalc.Domain.Entities.User;
 
 namespace GraphCalc.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/user")]
 public class UserController : ControllerBase
 {
     private readonly IUserRepository userRepository;
@@ -48,7 +48,7 @@ public class UserController : ControllerBase
             if (existingByUsername != null)
                 return BadRequest("Username already taken");
 
-            var user = User.Create(request.Username, request.Email, request.Description);
+            var user = DomainUser.Create(request.Username, request.Email, request.Description);
             userRepository.Add(user);
 
             var response = new UserGraphsListResponse

@@ -9,7 +9,7 @@ using GraphCalc.Domain.Entities;
 namespace GraphCalc.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/graphcalculation")]
 public class GraphCalculationController : ControllerBase
 {
     private readonly GraphCalculationFacade calculationFacade;
@@ -282,12 +282,88 @@ public class GraphCalculationController : ControllerBase
                 Graphs = graphDtos
             };
 
-            return CreatedAtAction(nameof(GetUserGraphs), new { userId = request.UserId }, response);
+            return CreatedAtAction(nameof(GetGraphById), new { id = graphSet.Id }, response);
         }
         catch (Exception ex)
         {
             return BadRequest($"Error saving graph set: {ex.Message}");
         }
+    }
+
+    [HttpGet("user/{userId}/graphs")]
+    [ProducesResponseType(typeof(UserGraphsListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult GetUserGraphs(Guid userId)
+    {
+        var user = userRepository.GetById(userId);
+        if (user == null)
+            return NotFound($"User with ID {userId} not found");
+
+        var publishedGraphs = publishedGraphRepository.GetByUserId(userId);
+        var graphDtos = new List<UserGraphDto>();
+
+        foreach (var publishedGraph in publishedGraphs)
+        {
+            var graph = graphRepository.GetById(publishedGraph.GraphId);
+            if (graph != null)
+            {
+                graphDtos.Add(new UserGraphDto
+                {
+                    Id = graph.Id,
+                    Expression = graph.Expression.Text,
+                    Title = publishedGraph.Metadata.Title,
+                    Description = publishedGraph.Metadata.Description
+                });
+            }
+        }
+
+        var graphSets = graphSetRepository.GetAll()
+            .Where(gs => gs.Graphs.Any(g => publishedGraphRepository
+                .GetByGraphId(g.Id)
+                .Any(pg => pg.UserId == userId)))
+            .ToList();
+
+        var graphSetDtos = new List<UserGraphSetDto>();
+        foreach (var graphSet in graphSets)
+        {
+            var setGraphDtos = new List<UserGraphDto>();
+            foreach (var graph in graphSet.Graphs)
+            {
+                var published = publishedGraphRepository.GetByGraphId(graph.Id)
+                    .FirstOrDefault(pg => pg.UserId == userId);
+
+                if (published != null)
+                {
+                    setGraphDtos.Add(new UserGraphDto
+                    {
+                        Id = graph.Id,
+                        Expression = graph.Expression.Text,
+                        Title = published.Metadata.Title,
+                        Description = published.Metadata.Description
+                    });
+                }
+            }
+
+            if (setGraphDtos.Count > 0)
+            {
+                graphSetDtos.Add(new UserGraphSetDto
+                {
+                    Id = graphSet.Id,
+                    Title = $"GraphSet {graphSetDtos.Count + 1}",
+                    Description = null,
+                    Graphs = setGraphDtos
+                });
+            }
+        }
+
+        var response = new UserGraphsListResponse
+        {
+            UserId = userId,
+            Graphs = graphDtos,
+            GraphSets = graphSetDtos
+        };
+
+        return Ok(response);
     }
 }
 
