@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:GraphCalcTest1.Avalonia.Controls"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="GraphCalcTest1.Avalonia.Views.GraphDisplayView"
+        Title="Graph Calculator"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True">
+
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,250">
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10" Margin="10" Background="WhiteSmoke" Padding="10">
+            <TextBlock VerticalAlignment="Center" FontWeight="Bold">Expression:</TextBlock>
+            <TextBox Width="250" Text="{Binding Expression}" VerticalAlignment="Center"/>
+            
+            <TextBlock VerticalAlignment="Center" FontWeight="Bold">XMin:</TextBlock>
+            <TextBox Width="60" Text="{Binding XMin}" VerticalAlignment="Center"/>
+            
+            <TextBlock VerticalAlignment="Center" FontWeight="Bold">XMax:</TextBlock>
+            <TextBox Width="60" Text="{Binding XMax}" VerticalAlignment="Center"/>
+            
+            <TextBlock VerticalAlignment="Center" FontWeight="Bold">Step:</TextBlock>
+            <TextBox Width="60" Text="{Binding XStep}" VerticalAlignment="Center"/>
+            
+            <Button Command="{Binding CalculateGraphCommand}" Padding="10,5">Calculate</Button>
+            <Button Command="{Binding ZoomInCommand}" Padding="10,5">Zoom In</Button>
+            <Button Command="{Binding ZoomOutCommand}" Padding="10,5">Zoom Out</Button>
+            <Button Command="{Binding ResetViewCommand}" Padding="10,5">Reset</Button>
+        </StackPanel>
+
+        <!-- Canvas -->
+        <local:GraphCanvasControl Grid.Row="1" Grid.Column="0" DataContext="{Binding}"/>
+
+        <!-- Right panel -->
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="10" Margin="10">
+            <!-- Status -->
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="DarkBlue" FontSize="12"/>
+            
+            <!-- Legend -->
+            <TextBlock FontWeight="Bold" FontSize="14">Graphs:</TextBlock>
+            <ScrollViewer Height="200">
+                <ItemsControl Items="{Binding Graphs}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="5" ColumnDefinitions="20,*,Auto" Background="LightGray" Padding="5">
+                                <Rectangle Grid.Column="0" Width="15" Height="15" Fill="{Binding StrokeColor}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Expression}" Margin="5,0" VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Command="{Binding DataContext.RemoveGraphCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                        CommandParameter="{Binding}" Padding="5,2" FontSize="10">×</Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Clear button -->
+            <Button Command="{Binding ClearGraphsCommand}" Padding="10,5">Clear All</Button>
+        </StackPanel>
+    </Grid>
+</Window>
