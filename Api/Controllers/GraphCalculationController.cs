@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GraphCalc.Api.Dtos;
 using GraphCalc.Api.Mappers;
-using GraphCalc.Infrastructure.Facade;
-using GraphCalc.Infrastructure.Repositories;
+using GraphCalc.Domain.Services;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.Entities;
 
@@ -12,24 +11,15 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/graphcalculation")]
 public class GraphCalculationController : ControllerBase
 {
-    private readonly GraphCalculationFacade calculationFacade;
-    private readonly IGraphRepository graphRepository;
-    private readonly IUserRepository userRepository;
-    private readonly InMemoryPublishedGraphRepository publishedGraphRepository;
-    private readonly InMemoryGraphSetRepository graphSetRepository;
+    private readonly IGraphCalculationService _graphCalculationService;
+    private readonly IGraphRepository _graphRepository;
 
     public GraphCalculationController(
-        GraphCalculationFacade calculationFacade,
-        IGraphRepository graphRepository,
-        IUserRepository userRepository,
-        InMemoryPublishedGraphRepository publishedGraphRepository,
-        InMemoryGraphSetRepository graphSetRepository)
+        IGraphCalculationService graphCalculationService,
+        IGraphRepository graphRepository)
     {
-        this.calculationFacade = calculationFacade;
-        this.graphRepository = graphRepository;
-        this.userRepository = userRepository;
-        this.publishedGraphRepository = publishedGraphRepository;
-        this.graphSetRepository = graphSetRepository;
+        _graphCalculationService = graphCalculationService;
+        _graphRepository = graphRepository;
     }
 
     [HttpPost("calculate")]
@@ -39,22 +29,13 @@ public class GraphCalculationController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Expression))
-                return BadRequest("Expression cannot be empty");
-
-            if (request.XMin >= request.XMax)
-                return BadRequest("XMin must be less than XMax");
-
-            if (request.XStep <= 0)
-                return BadRequest("XStep must be greater than 0");
-
             var graph = request.AutoYRange
-                ? calculationFacade.GetGraphWithAutoYRange(
+                ? _graphCalculationService.CalculateGraphWithAutoYRange(
                     request.Expression,
                     request.XMin,
                     request.XMax,
                     request.XStep)
-                : calculationFacade.GetGraph(
+                : _graphCalculationService.CalculateGraph(
                     request.Expression,
                     request.XMin,
                     request.XMax,
@@ -62,6 +43,10 @@ public class GraphCalculationController : ControllerBase
 
             var response = GraphToResponseMapper.Map(graph);
             return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -76,31 +61,19 @@ public class GraphCalculationController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Expression))
-                return BadRequest("Expression cannot be empty");
-
-            if (request.XMin >= request.XMax)
-                return BadRequest("XMin must be less than XMax");
-
-            if (request.XStep <= 0)
-                return BadRequest("XStep must be greater than 0");
-
-            var graph = request.AutoYRange
-                ? calculationFacade.GetGraphWithAutoYRange(
-                    request.Expression,
-                    request.XMin,
-                    request.XMax,
-                    request.XStep)
-                : calculationFacade.GetGraph(
-                    request.Expression,
-                    request.XMin,
-                    request.XMax,
-                    request.XStep);
-
-            graphRepository.Add(graph);
+            var graph = _graphCalculationService.CalculateAndSaveGraph(
+                request.Expression,
+                request.XMin,
+                request.XMax,
+                request.XStep,
+                request.AutoYRange);
 
             var response = GraphToResponseMapper.Map(graph);
             return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -113,7 +86,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetGraphById(Guid id)
     {
-        var graph = graphRepository.GetById(id);
+        var graph = _graphRepository.GetById(id);
         if (graph == null)
             return NotFound($"Graph with ID {id} not found");
 
@@ -125,7 +98,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(typeof(List<GraphResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAllGraphs()
     {
-        var graphs = graphRepository.GetAll();
+        var graphs = _graphRepository.GetAll();
         var responses = graphs.Select(GraphToResponseMapper.Map).ToList();
         return Ok(responses);
     }
@@ -137,7 +110,7 @@ public class GraphCalculationController : ControllerBase
         if (string.IsNullOrWhiteSpace(expressionText))
             return BadRequest("Expression text cannot be empty");
 
-        var graphs = graphRepository.GetByExpressionText(expressionText);
+        var graphs = _graphRepository.GetByExpressionText(expressionText);
         var responses = graphs.Select(GraphToResponseMapper.Map).ToList();
         return Ok(responses);
     }
@@ -147,7 +120,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult DeleteGraph(Guid id)
     {
-        var success = graphRepository.Delete(id);
+        var success = _graphRepository.Delete(id);
         if (!success)
             return NotFound($"Graph with ID {id} not found");
 
@@ -162,47 +135,26 @@ public class GraphCalculationController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Expression))
-                return BadRequest("Expression cannot be empty");
-
-            if (request.XMin >= request.XMax)
-                return BadRequest("XMin must be less than XMax");
-
-            if (request.XStep <= 0)
-                return BadRequest("XStep must be greater than 0");
-
-            if (string.IsNullOrWhiteSpace(request.Title))
-                return BadRequest("Title cannot be empty");
-
-            var user = userRepository.GetById(request.UserId);
-            if (user == null)
-                return NotFound($"User with ID {request.UserId} not found");
-
-            var graph = request.AutoYRange
-                ? calculationFacade.GetGraphWithAutoYRange(
-                    request.Expression,
-                    request.XMin,
-                    request.XMax,
-                    request.XStep)
-                : calculationFacade.GetGraph(
-                    request.Expression,
-                    request.XMin,
-                    request.XMax,
-                    request.XStep);
-
-            graphRepository.Add(graph);
-
-            var publishedGraph = PublishedGraph.Create(
-                request.UserId,
-                graph.Id,
+            var graph = _graphCalculationService.SaveGraph(
+                request.Expression,
+                request.XMin,
+                request.XMax,
+                request.XStep,
+                request.AutoYRange,
                 request.Title,
-                request.Description);
-
-            publishedGraphRepository.Add(publishedGraph);
-            user.PublishGraph(graph.Id);
+                request.Description,
+                request.UserId);
 
             var response = GraphToResponseMapper.Map(graph);
             return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
         }
         catch (Exception ex)
         {
@@ -218,71 +170,39 @@ public class GraphCalculationController : ControllerBase
     {
         try
         {
-            if (request.Graphs == null || request.Graphs.Count == 0)
-                return BadRequest("GraphSet must contain at least one graph");
+            var graphSet = _graphCalculationService.SaveGraphSet(
+                request.Graphs,
+                request.Title,
+                request.Description,
+                request.UserId);
 
-            if (string.IsNullOrWhiteSpace(request.Title))
-                return BadRequest("Title cannot be empty");
-
-            var user = userRepository.GetById(request.UserId);
-            if (user == null)
-                return NotFound($"User with ID {request.UserId} not found");
-
-            var graphSet = GraphSet.Create();
             var graphDtos = new List<UserGraphDto>();
-
-            foreach (var graphRequest in request.Graphs)
+            foreach (var graph in graphSet.Graphs)
             {
-                if (string.IsNullOrWhiteSpace(graphRequest.Expression))
-                    return BadRequest("All graphs must have an expression");
-
-                if (graphRequest.XMin >= graphRequest.XMax || graphRequest.XStep <= 0)
-                    return BadRequest("Invalid range or step for graph");
-
-                var graph = graphRequest.AutoYRange
-                    ? calculationFacade.GetGraphWithAutoYRange(
-                        graphRequest.Expression,
-                        graphRequest.XMin,
-                        graphRequest.XMax,
-                        graphRequest.XStep)
-                    : calculationFacade.GetGraph(
-                        graphRequest.Expression,
-                        graphRequest.XMin,
-                        graphRequest.XMax,
-                        graphRequest.XStep);
-
-                graphRepository.Add(graph);
-                graphSet.AddGraph(graph);
-
-                var publishedGraph = PublishedGraph.Create(
-                    request.UserId,
-                    graph.Id,
-                    graphRequest.Title ?? $"Graph {graphDtos.Count + 1}",
-                    graphRequest.Description);
-
-                publishedGraphRepository.Add(publishedGraph);
-                user.PublishGraph(graph.Id);
-
-                graphDtos.Add(new UserGraphDto
-                {
-                    Id = graph.Id,
-                    Expression = graph.Expression.Text,
-                    Title = graphRequest.Title ?? $"Graph {graphDtos.Count}",
-                    Description = graphRequest.Description
-                });
+                graphDtos.Add(new UserGraphDto(
+                    Id: graph.Id,
+                    Expression: graph.Expression.Text,
+                    Title: $"Graph {graphDtos.Count + 1}",
+                    Description: null
+                ));
             }
 
-            graphSetRepository.Add(graphSet);
-
-            var response = new UserGraphSetDto
-            {
-                Id = graphSet.Id,
-                Title = request.Title,
-                Description = request.Description,
-                Graphs = graphDtos
-            };
+            var response = new UserGraphSetDto(
+                Id: graphSet.Id,
+                Title: request.Title,
+                Description: request.Description,
+                Graphs: graphDtos
+            );
 
             return CreatedAtAction(nameof(GetGraphById), new { id = graphSet.Id }, response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
         }
         catch (Exception ex)
         {
@@ -295,75 +215,8 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetUserGraphs(Guid userId)
     {
-        var user = userRepository.GetById(userId);
-        if (user == null)
-            return NotFound($"User with ID {userId} not found");
-
-        var publishedGraphs = publishedGraphRepository.GetByUserId(userId);
-        var graphDtos = new List<UserGraphDto>();
-
-        foreach (var publishedGraph in publishedGraphs)
-        {
-            var graph = graphRepository.GetById(publishedGraph.GraphId);
-            if (graph != null)
-            {
-                graphDtos.Add(new UserGraphDto
-                {
-                    Id = graph.Id,
-                    Expression = graph.Expression.Text,
-                    Title = publishedGraph.Metadata.Title,
-                    Description = publishedGraph.Metadata.Description
-                });
-            }
-        }
-
-        var graphSets = graphSetRepository.GetAll()
-            .Where(gs => gs.Graphs.Any(g => publishedGraphRepository
-                .GetByGraphId(g.Id)
-                .Any(pg => pg.UserId == userId)))
-            .ToList();
-
-        var graphSetDtos = new List<UserGraphSetDto>();
-        foreach (var graphSet in graphSets)
-        {
-            var setGraphDtos = new List<UserGraphDto>();
-            foreach (var graph in graphSet.Graphs)
-            {
-                var published = publishedGraphRepository.GetByGraphId(graph.Id)
-                    .FirstOrDefault(pg => pg.UserId == userId);
-
-                if (published != null)
-                {
-                    setGraphDtos.Add(new UserGraphDto
-                    {
-                        Id = graph.Id,
-                        Expression = graph.Expression.Text,
-                        Title = published.Metadata.Title,
-                        Description = published.Metadata.Description
-                    });
-                }
-            }
-
-            if (setGraphDtos.Count > 0)
-            {
-                graphSetDtos.Add(new UserGraphSetDto
-                {
-                    Id = graphSet.Id,
-                    Title = $"GraphSet {graphSetDtos.Count + 1}",
-                    Description = null,
-                    Graphs = setGraphDtos
-                });
-            }
-        }
-
-        var response = new UserGraphsListResponse
-        {
-            UserId = userId,
-            Graphs = graphDtos,
-            GraphSets = graphSetDtos
-        };
-
-        return Ok(response);
+        // Этот метод будет перенесен в UserController
+        return BadRequest("This endpoint has been moved to UserController");
     }
 }
 

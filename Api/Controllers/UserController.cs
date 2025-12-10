@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using GraphCalc.Api.Dtos;
-using GraphCalc.Infrastructure.Repositories;
+using GraphCalc.Domain.Services;
 using GraphCalc.Domain.Interfaces;
+using GraphCalc.Infrastructure.Repositories;
 using DomainUser = GraphCalc.Domain.Entities.User;
 
 namespace GraphCalc.Api.Controllers;
@@ -10,21 +11,11 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/user")]
 public class UserController : ControllerBase
 {
-    private readonly IUserRepository userRepository;
-    private readonly IGraphRepository graphRepository;
-    private readonly InMemoryPublishedGraphRepository publishedGraphRepository;
-    private readonly InMemoryGraphSetRepository graphSetRepository;
+    private readonly IUserService _userService;
 
-    public UserController(
-        IUserRepository userRepository,
-        IGraphRepository graphRepository,
-        InMemoryPublishedGraphRepository publishedGraphRepository,
-        InMemoryGraphSetRepository graphSetRepository)
+    public UserController(IUserService userService)
     {
-        this.userRepository = userRepository;
-        this.graphRepository = graphRepository;
-        this.publishedGraphRepository = publishedGraphRepository;
-        this.graphSetRepository = graphSetRepository;
+        _userService = userService;
     }
 
     [HttpPost("register")]
@@ -34,31 +25,23 @@ public class UserController : ControllerBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(request.Username))
-                return BadRequest("Username cannot be empty");
+            var user = _userService.RegisterUser(request.Username, request.Email, request.Description);
 
-            if (string.IsNullOrWhiteSpace(request.Email))
-                return BadRequest("Email cannot be empty");
-
-            var existingByEmail = userRepository.GetByEmail(request.Email);
-            if (existingByEmail != null)
-                return BadRequest("Email already registered");
-
-            var existingByUsername = userRepository.GetByUsername(request.Username);
-            if (existingByUsername != null)
-                return BadRequest("Username already taken");
-
-            var user = DomainUser.Create(request.Username, request.Email, request.Description);
-            userRepository.Add(user);
-
-            var response = new UserGraphsListResponse
-            {
-                UserId = user.Id,
-                Graphs = new(),
-                GraphSets = new()
-            };
+            var response = new UserGraphsListResponse(
+                UserId: user.Id,
+                Graphs: new(),
+                GraphSets: new()
+            );
 
             return CreatedAtAction(nameof(GetUserGraphs), new { userId = user.Id }, response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -71,75 +54,19 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetUserGraphs(Guid userId)
     {
-        var user = userRepository.GetById(userId);
-        if (user == null)
-            return NotFound($"User with ID {userId} not found");
-
-        var publishedGraphs = publishedGraphRepository.GetByUserId(userId);
-        var graphDtos = new List<UserGraphDto>();
-
-        foreach (var publishedGraph in publishedGraphs)
+        try
         {
-            var graph = graphRepository.GetById(publishedGraph.GraphId);
-            if (graph != null)
-            {
-                graphDtos.Add(new UserGraphDto
-                {
-                    Id = graph.Id,
-                    Expression = graph.Expression.Text,
-                    Title = publishedGraph.Metadata.Title,
-                    Description = publishedGraph.Metadata.Description
-                });
-            }
+            var response = _userService.GetUserGraphs(userId);
+            return Ok(response);
         }
-
-        var graphSets = graphSetRepository.GetAll()
-            .Where(gs => gs.Graphs.Any(g => publishedGraphRepository
-                .GetByGraphId(g.Id)
-                .Any(pg => pg.UserId == userId)))
-            .ToList();
-
-        var graphSetDtos = new List<UserGraphSetDto>();
-        foreach (var graphSet in graphSets)
+        catch (KeyNotFoundException ex)
         {
-            var setGraphDtos = new List<UserGraphDto>();
-            foreach (var graph in graphSet.Graphs)
-            {
-                var published = publishedGraphRepository.GetByGraphId(graph.Id)
-                    .FirstOrDefault(pg => pg.UserId == userId);
-
-                if (published != null)
-                {
-                    setGraphDtos.Add(new UserGraphDto
-                    {
-                        Id = graph.Id,
-                        Expression = graph.Expression.Text,
-                        Title = published.Metadata.Title,
-                        Description = published.Metadata.Description
-                    });
-                }
-            }
-
-            if (setGraphDtos.Count > 0)
-            {
-                graphSetDtos.Add(new UserGraphSetDto
-                {
-                    Id = graphSet.Id,
-                    Title = $"GraphSet {graphSetDtos.Count + 1}",
-                    Description = null,
-                    Graphs = setGraphDtos
-                });
-            }
+            return NotFound(ex.Message);
         }
-
-        var response = new UserGraphsListResponse
+        catch (Exception ex)
         {
-            UserId = userId,
-            Graphs = graphDtos,
-            GraphSets = graphSetDtos
-        };
-
-        return Ok(response);
+            return BadRequest($"Error getting user graphs: {ex.Message}");
+        }
     }
 
     [HttpGet("{userId}")]
@@ -147,20 +74,19 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetUser(Guid userId)
     {
-        var user = userRepository.GetById(userId);
-        if (user == null)
-            return NotFound($"User with ID {userId} not found");
-
-        var response = new UserProfileResponse
+        try
         {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            Description = user.Description,
-            PublishedGraphCount = user.PublishedGraphIds.Count
-        };
-
-        return Ok(response);
+            var response = _userService.GetUserProfile(userId);
+            return Ok(response);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Error getting user: {ex.Message}");
+        }
     }
 
     [HttpPut("{userId}/description")]
@@ -168,32 +94,18 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult UpdateUserDescription(Guid userId, [FromBody] UpdateDescriptionRequest request)
     {
-        var user = userRepository.GetById(userId);
-        if (user == null)
-            return NotFound($"User with ID {userId} not found");
-
-        user.UpdateDescription(request.Description);
-        return Ok(new { message = "Description updated successfully" });
+        try
+        {
+            _userService.UpdateUserDescription(userId, request.Description ?? string.Empty);
+            return Ok(new { message = "Description updated successfully" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Error updating description: {ex.Message}");
+        }
     }
-}
-
-public class CreateUserRequest
-{
-    public string Username { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? Description { get; set; }
-}
-
-public class UpdateDescriptionRequest
-{
-    public string? Description { get; set; }
-}
-
-public class UserProfileResponse
-{
-    public Guid Id { get; set; }
-    public string Username { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public int PublishedGraphCount { get; set; }
 }
