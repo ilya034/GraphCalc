@@ -5,22 +5,18 @@ using GraphCalc.Presentation.Coordinates;
 using GraphCalc.Presentation.Mappers;
 using GraphCalc.Presentation.Models;
 
-namespace GraphCalc.Presentation.Facades;
+namespace GraphCalc.Domain.Services;
 
-public class GraphDisplayFacade
+public class GraphDisplayService : IGraphDisplayService
 {
-    private readonly ICoordinateTransformer transformer;
+    private readonly ICoordinateTransformer _transformer;
 
-    public GraphDisplayFacade(ICoordinateTransformer? transformer = null)
+    public GraphDisplayService(ICoordinateTransformer? transformer = null)
     {
-        this.transformer = transformer ?? new SimpleCoordinateTransformer();
+        _transformer = transformer ?? new SimpleCoordinateTransformer();
     }
 
-    public RenderableGraph Display(
-        Graph graph,
-        double yMin,
-        double yMax,
-        Size screenSize)
+    public RenderableGraph DisplayGraph(Graph graph, double yMin, double yMax, Size screenSize)
     {
         if (graph.Range == null)
             throw new InvalidOperationException("Graph must have a range set before display");
@@ -30,15 +26,13 @@ public class GraphDisplayFacade
 
         return GraphToRenderableGraphMapper.Map(
             graph,
-            transformer,
+            _transformer,
             xRange,
             yRange,
             screenSize);
     }
 
-    public RenderableGraph DisplayWithAutoYRange(
-        Graph graph,
-        Size screenSize)
+    public RenderableGraph DisplayGraphWithAutoYRange(Graph graph, Size screenSize)
     {
         if (graph.Range == null)
             throw new InvalidOperationException("Graph must have a range set before display");
@@ -58,7 +52,7 @@ public class GraphDisplayFacade
 
         return GraphToRenderableGraphMapper.Map(
             graph,
-            transformer,
+            _transformer,
             xRange,
             yRange,
             screenSize);

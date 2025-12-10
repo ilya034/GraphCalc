@@ -1,6 +1,6 @@
-using GraphCalc.Infrastructure.Facade;
 using GraphCalc.Infrastructure.Persistence;
 using GraphCalc.Infrastructure.Repositories;
+using GraphCalc.Infrastructure.ExpressionEvaluation;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.Services;
 
@@ -10,7 +10,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<GraphCalculationFacade>();
+builder.Services.AddSingleton<IExpressionEvaluator, CodingSebExpressionEvaluator>();
 builder.Services.AddSingleton<IGraphRepository, InMemoryGraphRepository>();
 builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
 builder.Services.AddSingleton<InMemoryPublishedGraphRepository>();
@@ -19,6 +19,7 @@ builder.Services.AddSingleton<InMemoryGraphSetRepository>();
 // Регистрация доменных сервисов
 builder.Services.AddScoped<IGraphCalculationService, GraphCalculationService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IGraphDisplayService, GraphDisplayService>();
 
 var app = builder.Build();
 

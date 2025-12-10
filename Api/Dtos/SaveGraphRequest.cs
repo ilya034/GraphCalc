@@ -1,10 +1,10 @@
+using GraphCalc.Domain.ValueObjects;
+
 namespace GraphCalc.Api.Dtos;
 
 public record SaveGraphRequest(
     string Expression = "",
-    double XMin = 0,
-    double XMax = 0,
-    double XStep = 0,
+    NumericRange? XRange = null,
     bool AutoYRange = false,
     Guid UserId = default,
     string Title = "",

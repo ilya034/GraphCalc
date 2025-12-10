@@ -1,6 +1,8 @@
 using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
-using GraphCalc.Infrastructure.Facade;
+using GraphCalc.Domain.ValueObjects;
+using GraphCalc.Infrastructure.ExpressionEvaluation;
+using GraphCalc.Infrastructure.GraphCalculation;
 using GraphCalc.Infrastructure.Repositories;
 using GraphCalc.Api.Dtos;
 
@@ -8,53 +10,53 @@ namespace GraphCalc.Domain.Services;
 
 public class GraphCalculationService : IGraphCalculationService
 {
-    private readonly GraphCalculationFacade _calculationFacade;
+    private readonly IExpressionEvaluator _evaluator;
     private readonly IGraphRepository _graphRepository;
     private readonly IUserRepository _userRepository;
     private readonly InMemoryPublishedGraphRepository _publishedGraphRepository;
     private readonly InMemoryGraphSetRepository _graphSetRepository;
 
     public GraphCalculationService(
-        GraphCalculationFacade calculationFacade,
+        IExpressionEvaluator? evaluator,
         IGraphRepository graphRepository,
         IUserRepository userRepository,
         InMemoryPublishedGraphRepository publishedGraphRepository,
         InMemoryGraphSetRepository graphSetRepository)
     {
-        _calculationFacade = calculationFacade;
+        _evaluator = evaluator ?? new CodingSebExpressionEvaluator();
         _graphRepository = graphRepository;
         _userRepository = userRepository;
         _publishedGraphRepository = publishedGraphRepository;
         _graphSetRepository = graphSetRepository;
     }
 
-    public Graph CalculateGraph(string expression, double xMin, double xMax, double xStep)
+    public Graph CalculateGraph(string expression, NumericRange xRange)
     {
-        ValidateGraphCalculationRequest(expression, xMin, xMax, xStep);
-        return _calculationFacade.GetGraph(expression, xMin, xMax, xStep);
+        ValidateGraphCalculationRequest(expression, xRange);
+        return GetGraphInternal(expression, xRange);
     }
 
-    public Graph CalculateGraphWithAutoYRange(string expression, double xMin, double xMax, double xStep)
+    public Graph CalculateGraphWithAutoYRange(string expression, NumericRange xRange)
     {
-        ValidateGraphCalculationRequest(expression, xMin, xMax, xStep);
-        return _calculationFacade.GetGraphWithAutoYRange(expression, xMin, xMax, xStep);
+        ValidateGraphCalculationRequest(expression, xRange);
+        return GetGraphWithAutoYRangeInternal(expression, xRange);
     }
 
-    public Graph CalculateAndSaveGraph(string expression, double xMin, double xMax, double xStep, bool autoYRange)
+    public Graph CalculateAndSaveGraph(string expression, NumericRange xRange, bool autoYRange)
     {
-        ValidateGraphCalculationRequest(expression, xMin, xMax, xStep);
+        ValidateGraphCalculationRequest(expression, xRange);
         
         var graph = autoYRange
-            ? _calculationFacade.GetGraphWithAutoYRange(expression, xMin, xMax, xStep)
-            : _calculationFacade.GetGraph(expression, xMin, xMax, xStep);
+            ? GetGraphWithAutoYRangeInternal(expression, xRange)
+            : GetGraphInternal(expression, xRange);
 
         _graphRepository.Add(graph);
         return graph;
     }
 
-    public Graph SaveGraph(string expression, double xMin, double xMax, double xStep, bool autoYRange, string title, string? description, Guid userId)
+    public Graph SaveGraph(string expression, NumericRange xRange, bool autoYRange, string title, string? description, Guid userId)
     {
-        ValidateGraphCalculationRequest(expression, xMin, xMax, xStep);
+        ValidateGraphCalculationRequest(expression, xRange);
         
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty", nameof(title));
@@ -64,8 +66,8 @@ public class GraphCalculationService : IGraphCalculationService
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
         var graph = autoYRange
-            ? _calculationFacade.GetGraphWithAutoYRange(expression, xMin, xMax, xStep)
-            : _calculationFacade.GetGraph(expression, xMin, xMax, xStep);
+            ? GetGraphWithAutoYRangeInternal(expression, xRange)
+            : GetGraphInternal(expression, xRange);
 
         _graphRepository.Add(graph);
 
@@ -98,23 +100,20 @@ public class GraphCalculationService : IGraphCalculationService
 
         foreach (var graphRequest in graphs)
         {
+            if (graphRequest.XRange == null)
+                throw new ArgumentException("XRange is required for all graphs");
+
             ValidateGraphCalculationRequest(
                 graphRequest.Expression,
-                graphRequest.XMin,
-                graphRequest.XMax,
-                graphRequest.XStep);
+                graphRequest.XRange);
 
             var graph = graphRequest.AutoYRange
-                ? _calculationFacade.GetGraphWithAutoYRange(
+                ? GetGraphWithAutoYRangeInternal(
                     graphRequest.Expression,
-                    graphRequest.XMin,
-                    graphRequest.XMax,
-                    graphRequest.XStep)
-                : _calculationFacade.GetGraph(
+                    graphRequest.XRange)
+                : GetGraphInternal(
                     graphRequest.Expression,
-                    graphRequest.XMin,
-                    graphRequest.XMax,
-                    graphRequest.XStep);
+                    graphRequest.XRange);
 
             _graphRepository.Add(graph);
             graphSet.AddGraph(graph);
@@ -140,15 +139,46 @@ public class GraphCalculationService : IGraphCalculationService
         return graphSet;
     }
 
-    public void ValidateGraphCalculationRequest(string expression, double xMin, double xMax, double xStep)
+    public void ValidateGraphCalculationRequest(string expression, NumericRange xRange)
     {
         if (string.IsNullOrWhiteSpace(expression))
             throw new ArgumentException("Expression cannot be empty", nameof(expression));
 
-        if (xMin >= xMax)
-            throw new ArgumentException("XMin must be less than XMax");
+        // NumericRange уже выполняет валидацию в методе Create
+        // Проверки xMin >= xMax и xStep <= 0 уже выполняются в NumericRange.Create
+    }
 
-        if (xStep <= 0)
-            throw new ArgumentException("XStep must be greater than 0");
+    private Graph GetGraphInternal(string expression, NumericRange xRange)
+    {
+        var mathExpr = MathExpression.Create(expression);
+        var graph = Graph.Create(mathExpr, "x");
+        graph.WithRange(xRange);
+
+        var calculator = new NumericalGraphCalculator(_evaluator);
+        var mathPoints = calculator.Calculate(graph).ToList();
+        graph.SetPoints(mathPoints);
+
+        return graph;
+    }
+
+    private Graph GetGraphWithAutoYRangeInternal(string expression, NumericRange xRange)
+    {
+        var mathExpr = MathExpression.Create(expression);
+        var graph = Graph.Create(mathExpr, "x");
+        graph.WithRange(xRange);
+
+        var calculator = new NumericalGraphCalculator(_evaluator);
+        var mathPoints = calculator.Calculate(graph).ToList();
+        graph.SetPoints(mathPoints);
+
+        var yValues = mathPoints.Where(p => !double.IsNaN(p.Y) && !double.IsInfinity(p.Y)).Select(p => p.Y);
+        var yMin = yValues.Any() ? yValues.Min() : -1;
+        var yMax = yValues.Any() ? yValues.Max() : 1;
+        var padding = (yMax - yMin) * 0.1;
+        
+        var yRange = NumericRange.Create(yMin - padding, yMax + padding, 0.1);
+        graph.WithRange(yRange);
+
+        return graph;
     }
 }

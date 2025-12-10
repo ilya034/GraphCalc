@@ -4,6 +4,7 @@ using GraphCalc.Api.Mappers;
 using GraphCalc.Domain.Services;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Api.Controllers;
 
@@ -27,31 +28,19 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult Calculate([FromBody] GraphCalculationRequest request)
     {
-        try
-        {
-            var graph = request.AutoYRange
-                ? _graphCalculationService.CalculateGraphWithAutoYRange(
-                    request.Expression,
-                    request.XMin,
-                    request.XMax,
-                    request.XStep)
-                : _graphCalculationService.CalculateGraph(
-                    request.Expression,
-                    request.XMin,
-                    request.XMax,
-                    request.XStep);
+        if (request.XRange == null)
+            throw new ArgumentException("XRange is required");
 
-            var response = GraphToResponseMapper.Map(graph);
-            return Ok(response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error calculating graph: {ex.Message}");
-        }
+        var graph = request.AutoYRange
+            ? _graphCalculationService.CalculateGraphWithAutoYRange(
+                request.Expression,
+                request.XRange)
+            : _graphCalculationService.CalculateGraph(
+                request.Expression,
+                request.XRange);
+
+        var response = GraphToResponseMapper.Map(graph);
+        return Ok(response);
     }
 
     [HttpPost("calculate-and-save")]
@@ -59,26 +48,16 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult CalculateAndSave([FromBody] GraphCalculationRequest request)
     {
-        try
-        {
-            var graph = _graphCalculationService.CalculateAndSaveGraph(
-                request.Expression,
-                request.XMin,
-                request.XMax,
-                request.XStep,
-                request.AutoYRange);
+        if (request.XRange == null)
+            throw new ArgumentException("XRange is required");
 
-            var response = GraphToResponseMapper.Map(graph);
-            return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error calculating and saving graph: {ex.Message}");
-        }
+        var graph = _graphCalculationService.CalculateAndSaveGraph(
+            request.Expression,
+            request.XRange,
+            request.AutoYRange);
+
+        var response = GraphToResponseMapper.Map(graph);
+        return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
     }
 
     [HttpGet("{id}")]
@@ -87,9 +66,6 @@ public class GraphCalculationController : ControllerBase
     public IActionResult GetGraphById(Guid id)
     {
         var graph = _graphRepository.GetById(id);
-        if (graph == null)
-            return NotFound($"Graph with ID {id} not found");
-
         var response = GraphToResponseMapper.Map(graph);
         return Ok(response);
     }
@@ -107,9 +83,6 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(typeof(List<GraphResponse>), StatusCodes.Status200OK)]
     public IActionResult SearchByExpression([FromQuery] string expressionText)
     {
-        if (string.IsNullOrWhiteSpace(expressionText))
-            return BadRequest("Expression text cannot be empty");
-
         var graphs = _graphRepository.GetByExpressionText(expressionText);
         var responses = graphs.Select(GraphToResponseMapper.Map).ToList();
         return Ok(responses);
@@ -120,10 +93,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult DeleteGraph(Guid id)
     {
-        var success = _graphRepository.Delete(id);
-        if (!success)
-            return NotFound($"Graph with ID {id} not found");
-
+        _graphRepository.Delete(id);
         return NoContent();
     }
 
@@ -133,33 +103,19 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult SaveGraph([FromBody] SaveGraphRequest request)
     {
-        try
-        {
-            var graph = _graphCalculationService.SaveGraph(
-                request.Expression,
-                request.XMin,
-                request.XMax,
-                request.XStep,
-                request.AutoYRange,
-                request.Title,
-                request.Description,
-                request.UserId);
+        if (request.XRange == null)
+            throw new ArgumentException("XRange is required");
 
-            var response = GraphToResponseMapper.Map(graph);
-            return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error saving graph: {ex.Message}");
-        }
+        var graph = _graphCalculationService.SaveGraph(
+            request.Expression,
+            request.XRange,
+            request.AutoYRange,
+            request.Title,
+            request.Description,
+            request.UserId);
+
+        var response = GraphToResponseMapper.Map(graph);
+        return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
     }
 
     [HttpPost("saveset")]
@@ -168,46 +124,31 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult SaveGraphSet([FromBody] SaveGraphSetRequest request)
     {
-        try
-        {
-            var graphSet = _graphCalculationService.SaveGraphSet(
-                request.Graphs,
-                request.Title,
-                request.Description,
-                request.UserId);
+        var graphSet = _graphCalculationService.SaveGraphSet(
+            request.Graphs,
+            request.Title,
+            request.Description,
+            request.UserId);
 
-            var graphDtos = new List<UserGraphDto>();
-            foreach (var graph in graphSet.Graphs)
-            {
-                graphDtos.Add(new UserGraphDto(
-                    Id: graph.Id,
-                    Expression: graph.Expression.Text,
-                    Title: $"Graph {graphDtos.Count + 1}",
-                    Description: null
-                ));
-            }
+        var graphDtos = new List<UserGraphDto>();
+        foreach (var graph in graphSet.Graphs)
+        {
+            graphDtos.Add(new UserGraphDto(
+                Id: graph.Id,
+                Expression: graph.Expression.Text,
+                Title: $"Graph {graphDtos.Count + 1}",
+                Description: null
+            ));
+        }
 
-            var response = new UserGraphSetDto(
-                Id: graphSet.Id,
-                Title: request.Title,
-                Description: request.Description,
-                Graphs: graphDtos
-            );
+        var response = new UserGraphSetDto(
+            Id: graphSet.Id,
+            Title: request.Title,
+            Description: request.Description,
+            Graphs: graphDtos
+        );
 
-            return CreatedAtAction(nameof(GetGraphById), new { id = graphSet.Id }, response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest($"Error saving graph set: {ex.Message}");
-        }
+        return CreatedAtAction(nameof(GetGraphById), new { id = graphSet.Id }, response);
     }
 
     [HttpGet("user/{userId}/graphs")]
