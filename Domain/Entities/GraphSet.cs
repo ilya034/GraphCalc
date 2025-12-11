@@ -1,5 +1,4 @@
 using GraphCalc.Domain.Common;
-using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Domain.Entities;
 
@@ -7,45 +6,35 @@ public class GraphSet : Entity
 {
     private readonly List<Graph> graphs = new();
 
-    private GraphSet(Guid id) : base(id) { }
+    private GraphSet(Guid id, Guid authorId)
+        : base(id)
+    {
+        AuthorId = authorId;
+    }
 
+    public Guid AuthorId { get; private set; }
     public IReadOnlyList<Graph> Graphs => graphs.AsReadOnly();
-    public NumericRange? Range { get; private set; }
 
-    public static GraphSet Create() => new(Guid.NewGuid());
-
-    public GraphSet WithRange(NumericRange range)
+    public static GraphSet Create(Guid authorId, IEnumerable<Graph> graphs)
     {
-        Range = range;
-        return this;
-    }
-
-    public GraphSet AddGraph(Graph graph)
-    {
-        if (graphs.Any(g => g.Id == graph.Id))
-            return this;
-
-        graphs.Add(graph);
-        if (Range != null)
-            graph.WithRange(Range);
-
-        return this;
-    }
-
-    public GraphSet RemoveGraph(Guid graphId)
-    {
-        graphs.RemoveAll(g => g.Id == graphId);
-        return this;
-    }
-
-    public GraphSet ApplyRange()
-    {
-        if (Range == null)
-            return this;
+        var set = new GraphSet(Guid.NewGuid(), authorId);
 
         foreach (var graph in graphs)
-            graph.WithRange(Range);
+            set.AddGraph(graph);
 
-        return this;
+        return set;
+    }
+
+    public void AddGraph(Graph graph)
+    {
+        graphs.Add(graph);
+    }
+
+    public void RemoveGraph(Guid graphId)
+    {
+        if (graphs.Count <= 1 && graphs.Any(g => g.Id == graphId))
+            throw new InvalidOperationException("Cannot remove the last graph from the set");
+
+        graphs.RemoveAll(g => g.Id == graphId);
     }
 }
