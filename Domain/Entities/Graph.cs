@@ -1,24 +1,55 @@
 using GraphCalc.Domain.Common;
+using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Domain.Entities;
 
 public class Graph : Entity
 {
-    private Graph(Guid id, string expression, string independentVariable = "x")
-    : base(id)
+    private readonly List<MathPoint> points = new();
+
+    private Graph(Guid id, MathExpression expression, string independentVariable)
+        : base(id)
     {
         Expression = expression;
         IndependentVariable = independentVariable;
     }
 
-    public string Expression { get; private set; }
-    public string IndependentVariable { get; private set; }
+    public MathExpression Expression { get; private set; }
+    public string IndependentVariable { get; private init; }
+    public NumericRange? Range { get; private set; }
+    public IReadOnlyList<MathPoint> Points => points.AsReadOnly();
 
-    public static Graph Create(string expression, string independentVariable = "x")
-        => new Graph(Guid.NewGuid(), expression, independentVariable);
+    public static Graph Create(
+        MathExpression expression,
+        string independentVariable)
+         => new Graph(
+                Guid.NewGuid(),
+                expression,
+                independentVariable);
 
-    public void UpdateExpression(string newExpression)
+    public Graph WithRange(NumericRange range)
+    {
+        Range = range;
+        return this;
+    }
+
+    public Graph SetPoints(IEnumerable<MathPoint> points)
+    {
+        this.points.Clear();
+        this.points.AddRange(points);
+        return this;
+    }
+
+    public Graph ClearPoints()
+    {
+        points.Clear();
+        return this;
+    }
+
+    public Graph WithExpression(MathExpression newExpression)
     {
         Expression = newExpression;
+        points.Clear();
+        return this;
     }
 }

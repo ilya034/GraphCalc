@@ -7,8 +7,10 @@ namespace GraphCalc.Domain.Services;
 
 public class UserService : IUserService
 {
-    private readonly IUserRepository userRepository;
-    private readonly IGraphRepository graphRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly IGraphRepository _graphRepository;
+    private readonly InMemoryPublishedGraphRepository _publishedGraphRepository;
+    private readonly InMemoryGraphSetRepository _graphSetRepository;
 
     public UserService(
         IUserRepository userRepository,
@@ -16,32 +18,32 @@ public class UserService : IUserService
         InMemoryPublishedGraphRepository publishedGraphRepository,
         InMemoryGraphSetRepository graphSetRepository)
     {
-        this.userRepository = userRepository;
-        this.graphRepository = graphRepository;
-        this.publishedGraphRepository = publishedGraphRepository;
-        this.graphSetRepository = graphSetRepository;
+        _userRepository = userRepository;
+        _graphRepository = graphRepository;
+        _publishedGraphRepository = publishedGraphRepository;
+        _graphSetRepository = graphSetRepository;
     }
 
     public User RegisterUser(string username, string email, string? description)
     {
         ValidateUserRegistration(username, email);
 
-        var existingByEmail = userRepository.GetByEmail(email);
+        var existingByEmail = _userRepository.GetByEmail(email);
         if (existingByEmail != null)
             throw new InvalidOperationException("Email already registered");
 
-        var existingByUsername = userRepository.GetByUsername(username);
+        var existingByUsername = _userRepository.GetByUsername(username);
         if (existingByUsername != null)
             throw new InvalidOperationException("Username already taken");
 
         var user = User.Create(username, email, description);
-        userRepository.Add(user);
+        _userRepository.Add(user);
         return user;
     }
 
     public UserProfileResponse GetUserProfile(Guid userId)
     {
-        var user = userRepository.GetById(userId);
+        var user = _userRepository.GetById(userId);
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
@@ -56,7 +58,7 @@ public class UserService : IUserService
 
     public void UpdateUserDescription(Guid userId, string description)
     {
-        var user = userRepository.GetById(userId);
+        var user = _userRepository.GetById(userId);
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
@@ -65,16 +67,16 @@ public class UserService : IUserService
 
     public UserGraphsListResponse GetUserGraphs(Guid userId)
     {
-        var user = userRepository.GetById(userId);
+        var user = _userRepository.GetById(userId);
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
-        var publishedGraphs = publishedGraphRepository.GetByUserId(userId);
+        var publishedGraphs = _publishedGraphRepository.GetByUserId(userId);
         var graphDtos = new List<UserGraphDto>();
 
         foreach (var publishedGraph in publishedGraphs)
         {
-            var graph = graphRepository.GetById(publishedGraph.GraphId);
+            var graph = _graphRepository.GetById(publishedGraph.GraphId);
             if (graph != null)
             {
                 graphDtos.Add(new UserGraphDto(
@@ -86,8 +88,8 @@ public class UserService : IUserService
             }
         }
 
-        var graphSets = graphSetRepository.GetAll()
-            .Where(gs => gs.Graphs.Any(g => publishedGraphRepository
+        var graphSets = _graphSetRepository.GetAll()
+            .Where(gs => gs.Graphs.Any(g => _publishedGraphRepository
                 .GetByGraphId(g.Id)
                 .Any(pg => pg.UserId == userId)))
             .ToList();
@@ -98,7 +100,7 @@ public class UserService : IUserService
             var setGraphDtos = new List<UserGraphDto>();
             foreach (var graph in graphSet.Graphs)
             {
-                var published = publishedGraphRepository.GetByGraphId(graph.Id)
+                var published = _publishedGraphRepository.GetByGraphId(graph.Id)
                     .FirstOrDefault(pg => pg.UserId == userId);
 
                 if (published != null)

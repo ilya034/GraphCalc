@@ -4,8 +4,6 @@ using GraphCalc.Infrastructure.Persistence;
 
 namespace GraphCalc.Infrastructure.Repositories;
 
-public class InMemoryGraphSetRepository : InMemoryRepository<GraphSet>, IGraphSetRepository
+public class InMemoryGraphSetRepository : InMemoryRepository<GraphSet>
 {
-    public IEnumerable<GraphSet> GetByAuthorId(Guid authorId)
-        => store.Values.Where(gs => gs.AuthorId == authorId);
 }
