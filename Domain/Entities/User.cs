@@ -4,6 +4,8 @@ namespace GraphCalc.Domain.Entities;
 
 public class User : Entity
 {
+    private readonly List<Guid> publishedGraphIds = new();
+
     private User(Guid id, string username, string email, string? description = null)
         : base(id)
     {
@@ -15,6 +17,7 @@ public class User : Entity
     public string Username { get; private set; }
     public string Email { get; private set; }
     public string? Description { get; private set; }
+    public IReadOnlyList<Guid> PublishedGraphIds => publishedGraphIds.AsReadOnly();
 
     public static User Create(string username, string email, string? description = null)
     {
@@ -35,4 +38,14 @@ public class User : Entity
     {
         Description = description;
     }
+
+    public void PublishGraph(Guid graphId)
+    {
+        if (!publishedGraphIds.Contains(graphId))
+            publishedGraphIds.Add(graphId);
+    }
+
+    public void UnpublishGraph(Guid graphId) => publishedGraphIds.Remove(graphId);
+
+    public void ClearPublishedGraphs() => publishedGraphIds.Clear();
 }

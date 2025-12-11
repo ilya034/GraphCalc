@@ -1,5 +1,6 @@
 using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
+using GraphCalc.Infrastructure.Repositories;
 using GraphCalc.Api.Dtos;
 
 namespace GraphCalc.Domain.Services;
@@ -7,13 +8,19 @@ namespace GraphCalc.Domain.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
-    private readonly IGraphSetRepository _graphSetRepository;
+    private readonly IGraphRepository _graphRepository;
+    private readonly InMemoryPublishedGraphRepository _publishedGraphRepository;
+    private readonly InMemoryGraphSetRepository _graphSetRepository;
 
     public UserService(
         IUserRepository userRepository,
-        IGraphSetRepository graphSetRepository)
+        IGraphRepository graphRepository,
+        InMemoryPublishedGraphRepository publishedGraphRepository,
+        InMemoryGraphSetRepository graphSetRepository)
     {
         _userRepository = userRepository;
+        _graphRepository = graphRepository;
+        _publishedGraphRepository = publishedGraphRepository;
         _graphSetRepository = graphSetRepository;
     }
 
@@ -40,14 +47,12 @@ public class UserService : IUserService
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
-        var graphSetsCount = _graphSetRepository.GetByAuthorId(userId).Count();
-
         return new UserProfileResponse(
             Id: user.Id,
             Username: user.Username,
             Email: user.Email,
             Description: user.Description,
-            GraphSetsCount: graphSetsCount
+            PublishedGraphCount: user.PublishedGraphIds.Count
         );
     }
 
@@ -66,33 +71,63 @@ public class UserService : IUserService
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
-        var graphSets = _graphSetRepository.GetByAuthorId(userId).ToList();
-        var graphSetDtos = new List<UserGraphSetDto>();
+        var publishedGraphs = _publishedGraphRepository.GetByUserId(userId);
+        var graphDtos = new List<UserGraphDto>();
 
+        foreach (var publishedGraph in publishedGraphs)
+        {
+            var graph = _graphRepository.GetById(publishedGraph.GraphId);
+            if (graph != null)
+            {
+                graphDtos.Add(new UserGraphDto(
+                    Id: graph.Id,
+                    Expression: graph.Expression.Text,
+                    Title: publishedGraph.Metadata.Title,
+                    Description: publishedGraph.Metadata.Description
+                ));
+            }
+        }
+
+        var graphSets = _graphSetRepository.GetAll()
+            .Where(gs => gs.Graphs.Any(g => _publishedGraphRepository
+                .GetByGraphId(g.Id)
+                .Any(pg => pg.UserId == userId)))
+            .ToList();
+
+        var graphSetDtos = new List<UserGraphSetDto>();
         foreach (var graphSet in graphSets)
         {
             var setGraphDtos = new List<UserGraphDto>();
             foreach (var graph in graphSet.Graphs)
             {
-                setGraphDtos.Add(new UserGraphDto(
-                    Id: graph.Id,
-                    Expression: graph.Expression.Text,
-                    Title: $"Graph {setGraphDtos.Count + 1}",
-                    Description: null
-                ));
+                var published = _publishedGraphRepository.GetByGraphId(graph.Id)
+                    .FirstOrDefault(pg => pg.UserId == userId);
+
+                if (published != null)
+                {
+                    setGraphDtos.Add(new UserGraphDto(
+                        Id: graph.Id,
+                        Expression: graph.Expression.Text,
+                        Title: published.Metadata.Title,
+                        Description: published.Metadata.Description
+                    ));
+                }
             }
 
-            graphSetDtos.Add(new UserGraphSetDto(
-                Id: graphSet.Id,
-                Title: $"GraphSet {graphSetDtos.Count + 1}",
-                Description: null,
-                Graphs: setGraphDtos
-            ));
+            if (setGraphDtos.Count > 0)
+            {
+                graphSetDtos.Add(new UserGraphSetDto(
+                    Id: graphSet.Id,
+                    Title: $"GraphSet {graphSetDtos.Count + 1}",
+                    Description: null,
+                    Graphs: setGraphDtos
+                ));
+            }
         }
 
         return new UserGraphsListResponse(
             UserId: userId,
-            Graphs: new List<UserGraphDto>(),
+            Graphs: graphDtos,
             GraphSets: graphSetDtos
         );
     }

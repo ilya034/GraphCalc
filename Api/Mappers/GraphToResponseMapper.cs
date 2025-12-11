@@ -11,7 +11,7 @@ public class GraphToResponseMapper
             Id: graph.Id,
             Expression: graph.Expression.Text,
             IndependentVariable: graph.IndependentVariable,
-            Points: new List<MathPoint>(), // Points are not stored in the repository anymore
+            Points: graph.Points.ToList(),
             Range: graph.Range
         );
     }

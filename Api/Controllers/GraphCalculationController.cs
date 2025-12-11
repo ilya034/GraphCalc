@@ -96,7 +96,7 @@ public class GraphCalculationController : ControllerBase
     }
 
     [HttpPost("save")]
-    [ProducesResponseType(typeof(UserGraphSetDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(GraphResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult SaveGraph([FromBody] SaveGraphRequest request)
@@ -104,7 +104,7 @@ public class GraphCalculationController : ControllerBase
         if (request.XRange == null)
             throw new ArgumentException("XRange is required");
 
-        var graphSet = graphCalculationService.SaveGraph(
+        var graph = graphCalculationService.SaveGraph(
             request.Expression,
             request.XRange,
             request.AutoYRange,
@@ -112,18 +112,8 @@ public class GraphCalculationController : ControllerBase
             request.Description,
             request.UserId);
 
-        var response = new UserGraphSetDto(
-            Id: graphSet.Id,
-            Title: request.Title,
-            Description: request.Description,
-            Graphs: graphSet.Graphs.Select(g => new UserGraphDto(
-                Id: g.Id,
-                Expression: g.Expression.Text,
-                Title: request.Title,
-                Description: request.Description
-            )).ToList()
-        );
-        return CreatedAtAction(nameof(GetGraphSetById), new { id = graphSet.Id }, response);
+        var response = GraphToResponseMapper.Map(graph);
+        return CreatedAtAction(nameof(GetGraphById), new { id = graph.Id }, response);
     }
 
     [HttpPost("saveset")]
@@ -156,17 +146,7 @@ public class GraphCalculationController : ControllerBase
             Graphs: graphDtos
         );
 
-        return CreatedAtAction(nameof(GetGraphSetById), new { id = graphSet.Id }, response);
-    }
-
-    [HttpGet("set/{id}")]
-    [ProducesResponseType(typeof(UserGraphSetDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetGraphSetById(Guid id)
-    {
-        // This would need to be implemented based on your repository structure
-        // For now, returning NotFound as a placeholder
-        return NotFound();
+        return CreatedAtAction(nameof(GetGraphById), new { id = graphSet.Id }, response);
     }
 
     [HttpGet("user/{userId}/graphs")]

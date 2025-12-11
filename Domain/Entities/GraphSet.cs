@@ -7,16 +7,12 @@ public class GraphSet : Entity
 {
     private readonly List<Graph> graphs = new();
 
-    private GraphSet(Guid id, Guid authorId) : base(id) 
-    {
-        AuthorId = authorId;
-    }
+    private GraphSet(Guid id) : base(id) { }
 
     public IReadOnlyList<Graph> Graphs => graphs.AsReadOnly();
     public NumericRange? Range { get; private set; }
-    public Guid AuthorId { get; private set; }
 
-    public static GraphSet Create(Guid authorId) => new(Guid.NewGuid(), authorId);
+    public static GraphSet Create() => new(Guid.NewGuid());
 
     public GraphSet WithRange(NumericRange range)
     {
@@ -38,9 +34,6 @@ public class GraphSet : Entity
 
     public GraphSet RemoveGraph(Guid graphId)
     {
-        if (graphs.Count <= 1)
-            throw new InvalidOperationException("GraphSet must contain at least one graph");
-
         graphs.RemoveAll(g => g.Id == graphId);
         return this;
     }
