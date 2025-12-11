@@ -43,7 +43,7 @@ public class GraphDisplayService : IGraphDisplayService
             throw new InvalidOperationException("Graph must have a range set before display");
 
         var xRange = graph.Range;
-        var yRange = CalculateYRangeFromGraphWithPadding(graph);
+        var yRange = _calculationService.CalculateYRangeFromGraphWithPadding(graph);
 
         return GraphToRenderableGraphMapper.Map(
             graph,
@@ -51,29 +51,5 @@ public class GraphDisplayService : IGraphDisplayService
             xRange,
             yRange,
             screenSize);
-    }
-
-    private NumericRange CalculateYRangeFromGraphWithPadding(Graph graph, double paddingFactor = 0.1)
-    {
-        if (graph.Points == null || !graph.Points.Any())
-            return NumericRange.Create(-1, 1, 0.1);
-
-        var yValues = graph.Points
-            .Where(p => !double.IsNaN(p.Y) && !double.IsInfinity(p.Y))
-            .Select(p => p.Y);
-
-        if (!yValues.Any())
-            return NumericRange.Create(-1, 1, 0.1);
-
-        var yMin = yValues.Min();
-        var yMax = yValues.Max();
-        var yRange = NumericRange.Create(yMin, yMax, 0.1);
-
-        var padding = (yRange.Max - yRange.Min) * paddingFactor;
-
-        return NumericRange.Create(
-            yRange.Min - padding,
-            yRange.Max + padding,
-            yRange.Step);
     }
 }
