@@ -5,8 +5,6 @@ namespace GraphCalc.Domain.Entities;
 
 public class Graph : Entity
 {
-    private readonly List<MathPoint> points = new();
-
     private Graph(Guid id, MathExpression expression, string independentVariable)
         : base(id)
     {
@@ -17,7 +15,6 @@ public class Graph : Entity
     public MathExpression Expression { get; private set; }
     public string IndependentVariable { get; private init; }
     public NumericRange? Range { get; private set; }
-    public IReadOnlyList<MathPoint> Points => points.AsReadOnly();
 
     public static Graph Create(
         MathExpression expression,
@@ -33,23 +30,9 @@ public class Graph : Entity
         return this;
     }
 
-    public Graph SetPoints(IEnumerable<MathPoint> points)
-    {
-        this.points.Clear();
-        this.points.AddRange(points);
-        return this;
-    }
-
-    public Graph ClearPoints()
-    {
-        points.Clear();
-        return this;
-    }
-
     public Graph WithExpression(MathExpression newExpression)
     {
         Expression = newExpression;
-        points.Clear();
         return this;
     }
 }

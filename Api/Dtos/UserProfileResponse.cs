@@ -5,4 +5,4 @@ public record UserProfileResponse(
     string Username,
     string Email,
     string? Description = null,
-    int PublishedGraphCount = 0);
+    int GraphSetsCount = 0);

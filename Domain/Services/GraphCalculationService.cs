@@ -3,7 +3,6 @@ using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.ValueObjects;
 using GraphCalc.Infrastructure.ExpressionEvaluation;
 using GraphCalc.Infrastructure.GraphCalculation;
-using GraphCalc.Infrastructure.Repositories;
 using GraphCalc.Api.Dtos;
 
 namespace GraphCalc.Domain.Services;
@@ -13,48 +12,43 @@ public class GraphCalculationService : IGraphCalculationService
     private readonly IExpressionEvaluator evaluator;
     private readonly IGraphRepository graphRepository;
     private readonly IUserRepository userRepository;
-    private readonly InMemoryPublishedGraphRepository publishedGraphRepository;
-    private readonly InMemoryGraphSetRepository graphSetRepository;
+    private readonly IGraphSetRepository graphSetRepository;
 
     public GraphCalculationService(
         IExpressionEvaluator? evaluator,
         IGraphRepository graphRepository,
         IUserRepository userRepository,
-        InMemoryPublishedGraphRepository publishedGraphRepository,
-        InMemoryGraphSetRepository graphSetRepository)
+        IGraphSetRepository graphSetRepository)
     {
         this.evaluator = evaluator ?? new CodingSebExpressionEvaluator();
         this.graphRepository = graphRepository;
         this.userRepository = userRepository;
-        this.publishedGraphRepository = publishedGraphRepository;
         this.graphSetRepository = graphSetRepository;
     }
 
     public Graph CalculateGraph(string expression, NumericRange xRange)
     {
         ValidateGraphCalculationRequest(expression, xRange);
-        return GetGraphInternal(expression, xRange);
+        return GetGraphInternal(expression, xRange, false);
     }
 
     public Graph CalculateGraphWithAutoYRange(string expression, NumericRange xRange)
     {
         ValidateGraphCalculationRequest(expression, xRange);
-        return GetGraphWithAutoYRangeInternal(expression, xRange);
+        return GetGraphInternal(expression, xRange, true);
     }
 
     public Graph CalculateAndSaveGraph(string expression, NumericRange xRange, bool autoYRange)
     {
         ValidateGraphCalculationRequest(expression, xRange);
         
-        var graph = autoYRange
-            ? GetGraphWithAutoYRangeInternal(expression, xRange)
-            : GetGraphInternal(expression, xRange);
+        var graph = GetGraphInternal(expression, xRange, autoYRange);
 
         graphRepository.Add(graph);
         return graph;
     }
 
-    public Graph SaveGraph(string expression, NumericRange xRange, bool autoYRange, string title, string? description, Guid userId)
+    public GraphSet SaveGraph(string expression, NumericRange xRange, bool autoYRange, string title, string? description, Guid userId)
     {
         ValidateGraphCalculationRequest(expression, xRange);
         
@@ -65,22 +59,15 @@ public class GraphCalculationService : IGraphCalculationService
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
-        var graph = autoYRange
-            ? GetGraphWithAutoYRangeInternal(expression, xRange)
-            : GetGraphInternal(expression, xRange);
+        var graph = GetGraphInternal(expression, xRange, autoYRange);
 
         graphRepository.Add(graph);
 
-        var publishedGraph = PublishedGraph.Create(
-            userId,
-            graph.Id,
-            title,
-            description);
+        var graphSet = GraphSet.Create(userId);
+        graphSet.AddGraph(graph);
+        graphSetRepository.Add(graphSet);
 
-        publishedGraphRepository.Add(publishedGraph);
-        user.PublishGraph(graph.Id);
-
-        return graph;
+        return graphSet;
     }
 
     public GraphSet SaveGraphSet(System.Collections.Generic.List<GraphCalc.Api.Dtos.SaveGraphRequest> graphs, string title, string? description, Guid userId)
@@ -107,32 +94,13 @@ public class GraphCalculationService : IGraphCalculationService
                 graphRequest.Expression,
                 graphRequest.XRange);
 
-            var graph = graphRequest.AutoYRange
-                ? GetGraphWithAutoYRangeInternal(
+            var graph = GetGraphInternal(
                     graphRequest.Expression,
-                    graphRequest.XRange)
-                : GetGraphInternal(
-                    graphRequest.Expression,
-                    graphRequest.XRange);
+                    graphRequest.XRange,
+                    graphRequest.AutoYRange);
 
             graphRepository.Add(graph);
             graphSet.AddGraph(graph);
-
-            var publishedGraph = PublishedGraph.Create(
-                userId,
-                graph.Id,
-                graphRequest.Title ?? $"Graph {graphDtos.Count + 1}",
-                graphRequest.Description);
-
-            publishedGraphRepository.Add(publishedGraph);
-            user.PublishGraph(graph.Id);
-
-            graphDtos.Add(new UserGraphDto(
-                Id: graph.Id,
-                Expression: graph.Expression.Text,
-                Title: graphRequest.Title ?? $"Graph {graphDtos.Count}",
-                Description: graphRequest.Description
-            ));
         }
 
         graphSetRepository.Add(graphSet);
@@ -148,42 +116,30 @@ public class GraphCalculationService : IGraphCalculationService
         // Проверки xMin >= xMax и xStep <= 0 уже выполняются в NumericRange.Create
     }
 
-    private Graph GetGraphInternal(string expression, NumericRange xRange)
+    private Graph GetGraphInternal(string expression, NumericRange xRange, bool calculateYRange = false)
     {
         var mathExpr = MathExpression.Create(expression);
         var graph = Graph.Create(mathExpr, "x");
         graph.WithRange(xRange);
 
-        var calculator = new NumericalGraphCalculator(evaluator);
-        var mathPoints = calculator.Calculate(graph).ToList();
-        graph.SetPoints(mathPoints);
-
-        return graph;
-    }
-
-    private Graph GetGraphWithAutoYRangeInternal(string expression, NumericRange xRange)
-    {
-        var mathExpr = MathExpression.Create(expression);
-        var graph = Graph.Create(mathExpr, "x");
-        graph.WithRange(xRange);
-
-        var calculator = new NumericalGraphCalculator(evaluator);
-        var mathPoints = calculator.Calculate(graph).ToList();
-        graph.SetPoints(mathPoints);
-
-        var yRange = CalculateYRangeFromGraphWithPadding(graph);
-        graph.WithRange(yRange);
+        if (calculateYRange)
+        {
+            var calculator = new NumericalGraphCalculator(evaluator);
+            var mathPoints = calculator.Calculate(graph).ToList();
+            var yRange = CalculateYRangeFromPoints(mathPoints);
+            graph.WithRange(yRange);
+        }
 
         return graph;
     }
 
     // Range calculation methods (integrated from GraphRangeService)
-    public NumericRange CalculateYRangeFromGraph(Graph graph)
+    private NumericRange CalculateYRangeFromPoints(IEnumerable<MathPoint> points)
     {
-        if (graph.Points == null || !graph.Points.Any())
+        if (points == null || !points.Any())
             return NumericRange.Create(-1, 1, 0.1);
 
-        var yValues = graph.Points
+        var yValues = points
             .Where(p => !double.IsNaN(p.Y) && !double.IsInfinity(p.Y))
             .Select(p => p.Y);
 
@@ -196,9 +152,9 @@ public class GraphCalculationService : IGraphCalculationService
         return NumericRange.Create(yMin, yMax, 0.1);
     }
 
-    public NumericRange CalculateYRangeFromGraphWithPadding(Graph graph, double paddingFactor = 0.1)
+    private NumericRange CalculateYRangeFromPointsWithPadding(IEnumerable<MathPoint> points, double paddingFactor = 0.1)
     {
-        var yRange = CalculateYRangeFromGraph(graph);
+        var yRange = CalculateYRangeFromPoints(points);
         var padding = (yRange.Max - yRange.Min) * paddingFactor;
 
         return NumericRange.Create(

@@ -14,8 +14,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IExpressionEvaluator, CodingSebExpressionEvaluator>();
 builder.Services.AddSingleton<IGraphRepository, InMemoryGraphRepository>();
 builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
-builder.Services.AddSingleton<InMemoryPublishedGraphRepository>();
-builder.Services.AddSingleton<InMemoryGraphSetRepository>();
+
+builder.Services.AddSingleton<IGraphSetRepository, InMemoryGraphSetRepository>();
 
 // Регистрация доменных сервисов
 builder.Services.AddScoped<IGraphCalculationService, GraphCalculationService>();
