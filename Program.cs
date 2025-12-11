@@ -3,6 +3,7 @@ using GraphCalc.Infrastructure.Repositories;
 using GraphCalc.Infrastructure.ExpressionEvaluation;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.Services;
+using GraphCalc.Presentation.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +20,9 @@ builder.Services.AddSingleton<InMemoryGraphSetRepository>();
 // Регистрация доменных сервисов
 builder.Services.AddScoped<IGraphCalculationService, GraphCalculationService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IGraphDisplayService, GraphDisplayService>();
+
+// Регистрация сервисов презентационного слоя
+builder.Services.AddScoped<GraphCalc.Presentation.Services.IGraphDisplayService, GraphCalc.Presentation.Services.GraphDisplayService>();
 
 var app = builder.Build();
 

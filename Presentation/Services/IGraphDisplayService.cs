@@ -2,7 +2,7 @@ using System.Drawing;
 using GraphCalc.Domain.Entities;
 using GraphCalc.Presentation.Models;
 
-namespace GraphCalc.Domain.Services;
+namespace GraphCalc.Presentation.Services;
 
 public interface IGraphDisplayService
 {

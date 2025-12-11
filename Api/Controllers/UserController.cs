@@ -11,11 +11,11 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/user")]
 public class UserController : ControllerBase
 {
-    private readonly IUserService _userService;
+    private readonly IUserService userService;
 
     public UserController(IUserService userService)
     {
-        _userService = userService;
+        this.userService = userService;
     }
 
     [HttpPost("register")]
@@ -23,7 +23,7 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult RegisterUser([FromBody] CreateUserRequest request)
     {
-        var user = _userService.RegisterUser(request.Username, request.Email, request.Description);
+        var user = userService.RegisterUser(request.Username, request.Email, request.Description);
 
         var response = new UserGraphsListResponse(
             UserId: user.Id,
@@ -39,7 +39,7 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetUserGraphs(Guid userId)
     {
-        var response = _userService.GetUserGraphs(userId);
+        var response = userService.GetUserGraphs(userId);
         return Ok(response);
     }
 
@@ -48,7 +48,7 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetUser(Guid userId)
     {
-        var response = _userService.GetUserProfile(userId);
+        var response = userService.GetUserProfile(userId);
         return Ok(response);
     }
 
@@ -57,7 +57,7 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult UpdateUserDescription(Guid userId, [FromBody] UpdateDescriptionRequest request)
     {
-        _userService.UpdateUserDescription(userId, request.Description ?? string.Empty);
+        userService.UpdateUserDescription(userId, request.Description ?? string.Empty);
         return Ok(new { message = "Description updated successfully" });
     }
 }

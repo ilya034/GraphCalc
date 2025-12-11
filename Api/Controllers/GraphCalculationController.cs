@@ -3,8 +3,6 @@ using GraphCalc.Api.Dtos;
 using GraphCalc.Api.Mappers;
 using GraphCalc.Domain.Services;
 using GraphCalc.Domain.Interfaces;
-using GraphCalc.Domain.Entities;
-using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Api.Controllers;
 
@@ -12,15 +10,15 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/graphcalculation")]
 public class GraphCalculationController : ControllerBase
 {
-    private readonly IGraphCalculationService _graphCalculationService;
-    private readonly IGraphRepository _graphRepository;
+    private readonly IGraphCalculationService graphCalculationService;
+    private readonly IGraphRepository graphRepository;
 
     public GraphCalculationController(
         IGraphCalculationService graphCalculationService,
         IGraphRepository graphRepository)
     {
-        _graphCalculationService = graphCalculationService;
-        _graphRepository = graphRepository;
+        this.graphCalculationService = graphCalculationService;
+        this.graphRepository = graphRepository;
     }
 
     [HttpPost("calculate")]
@@ -32,10 +30,10 @@ public class GraphCalculationController : ControllerBase
             throw new ArgumentException("XRange is required");
 
         var graph = request.AutoYRange
-            ? _graphCalculationService.CalculateGraphWithAutoYRange(
+            ? graphCalculationService.CalculateGraphWithAutoYRange(
                 request.Expression,
                 request.XRange)
-            : _graphCalculationService.CalculateGraph(
+            : graphCalculationService.CalculateGraph(
                 request.Expression,
                 request.XRange);
 
@@ -51,7 +49,7 @@ public class GraphCalculationController : ControllerBase
         if (request.XRange == null)
             throw new ArgumentException("XRange is required");
 
-        var graph = _graphCalculationService.CalculateAndSaveGraph(
+        var graph = graphCalculationService.CalculateAndSaveGraph(
             request.Expression,
             request.XRange,
             request.AutoYRange);
@@ -65,7 +63,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetGraphById(Guid id)
     {
-        var graph = _graphRepository.GetById(id);
+        var graph = graphRepository.GetById(id);
         var response = GraphToResponseMapper.Map(graph);
         return Ok(response);
     }
@@ -74,7 +72,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(typeof(List<GraphResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAllGraphs()
     {
-        var graphs = _graphRepository.GetAll();
+        var graphs = graphRepository.GetAll();
         var responses = graphs.Select(GraphToResponseMapper.Map).ToList();
         return Ok(responses);
     }
@@ -83,7 +81,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(typeof(List<GraphResponse>), StatusCodes.Status200OK)]
     public IActionResult SearchByExpression([FromQuery] string expressionText)
     {
-        var graphs = _graphRepository.GetByExpressionText(expressionText);
+        var graphs = graphRepository.GetByExpressionText(expressionText);
         var responses = graphs.Select(GraphToResponseMapper.Map).ToList();
         return Ok(responses);
     }
@@ -93,7 +91,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult DeleteGraph(Guid id)
     {
-        _graphRepository.Delete(id);
+        graphRepository.Delete(id);
         return NoContent();
     }
 
@@ -106,7 +104,7 @@ public class GraphCalculationController : ControllerBase
         if (request.XRange == null)
             throw new ArgumentException("XRange is required");
 
-        var graph = _graphCalculationService.SaveGraph(
+        var graph = graphCalculationService.SaveGraph(
             request.Expression,
             request.XRange,
             request.AutoYRange,
@@ -124,7 +122,7 @@ public class GraphCalculationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult SaveGraphSet([FromBody] SaveGraphSetRequest request)
     {
-        var graphSet = _graphCalculationService.SaveGraphSet(
+        var graphSet = graphCalculationService.SaveGraphSet(
             request.Graphs,
             request.Title,
             request.Description,

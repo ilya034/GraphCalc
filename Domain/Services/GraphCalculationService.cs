@@ -10,11 +10,11 @@ namespace GraphCalc.Domain.Services;
 
 public class GraphCalculationService : IGraphCalculationService
 {
-    private readonly IExpressionEvaluator _evaluator;
-    private readonly IGraphRepository _graphRepository;
-    private readonly IUserRepository _userRepository;
-    private readonly InMemoryPublishedGraphRepository _publishedGraphRepository;
-    private readonly InMemoryGraphSetRepository _graphSetRepository;
+    private readonly IExpressionEvaluator evaluator;
+    private readonly IGraphRepository graphRepository;
+    private readonly IUserRepository userRepository;
+    private readonly InMemoryPublishedGraphRepository publishedGraphRepository;
+    private readonly InMemoryGraphSetRepository graphSetRepository;
 
     public GraphCalculationService(
         IExpressionEvaluator? evaluator,
@@ -23,11 +23,11 @@ public class GraphCalculationService : IGraphCalculationService
         InMemoryPublishedGraphRepository publishedGraphRepository,
         InMemoryGraphSetRepository graphSetRepository)
     {
-        _evaluator = evaluator ?? new CodingSebExpressionEvaluator();
-        _graphRepository = graphRepository;
-        _userRepository = userRepository;
-        _publishedGraphRepository = publishedGraphRepository;
-        _graphSetRepository = graphSetRepository;
+        this.evaluator = evaluator ?? new CodingSebExpressionEvaluator();
+        this.graphRepository = graphRepository;
+        this.userRepository = userRepository;
+        this.publishedGraphRepository = publishedGraphRepository;
+        this.graphSetRepository = graphSetRepository;
     }
 
     public Graph CalculateGraph(string expression, NumericRange xRange)
@@ -50,7 +50,7 @@ public class GraphCalculationService : IGraphCalculationService
             ? GetGraphWithAutoYRangeInternal(expression, xRange)
             : GetGraphInternal(expression, xRange);
 
-        _graphRepository.Add(graph);
+        graphRepository.Add(graph);
         return graph;
     }
 
@@ -61,7 +61,7 @@ public class GraphCalculationService : IGraphCalculationService
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty", nameof(title));
 
-        var user = _userRepository.GetById(userId);
+        var user = userRepository.GetById(userId);
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
@@ -69,7 +69,7 @@ public class GraphCalculationService : IGraphCalculationService
             ? GetGraphWithAutoYRangeInternal(expression, xRange)
             : GetGraphInternal(expression, xRange);
 
-        _graphRepository.Add(graph);
+        graphRepository.Add(graph);
 
         var publishedGraph = PublishedGraph.Create(
             userId,
@@ -77,7 +77,7 @@ public class GraphCalculationService : IGraphCalculationService
             title,
             description);
 
-        _publishedGraphRepository.Add(publishedGraph);
+        publishedGraphRepository.Add(publishedGraph);
         user.PublishGraph(graph.Id);
 
         return graph;
@@ -91,7 +91,7 @@ public class GraphCalculationService : IGraphCalculationService
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty", nameof(title));
 
-        var user = _userRepository.GetById(userId);
+        var user = userRepository.GetById(userId);
         if (user == null)
             throw new KeyNotFoundException($"User with ID {userId} not found");
 
@@ -115,7 +115,7 @@ public class GraphCalculationService : IGraphCalculationService
                     graphRequest.Expression,
                     graphRequest.XRange);
 
-            _graphRepository.Add(graph);
+            graphRepository.Add(graph);
             graphSet.AddGraph(graph);
 
             var publishedGraph = PublishedGraph.Create(
@@ -124,7 +124,7 @@ public class GraphCalculationService : IGraphCalculationService
                 graphRequest.Title ?? $"Graph {graphDtos.Count + 1}",
                 graphRequest.Description);
 
-            _publishedGraphRepository.Add(publishedGraph);
+            publishedGraphRepository.Add(publishedGraph);
             user.PublishGraph(graph.Id);
 
             graphDtos.Add(new UserGraphDto(
@@ -135,7 +135,7 @@ public class GraphCalculationService : IGraphCalculationService
             ));
         }
 
-        _graphSetRepository.Add(graphSet);
+        graphSetRepository.Add(graphSet);
         return graphSet;
     }
 
@@ -154,7 +154,7 @@ public class GraphCalculationService : IGraphCalculationService
         var graph = Graph.Create(mathExpr, "x");
         graph.WithRange(xRange);
 
-        var calculator = new NumericalGraphCalculator(_evaluator);
+        var calculator = new NumericalGraphCalculator(evaluator);
         var mathPoints = calculator.Calculate(graph).ToList();
         graph.SetPoints(mathPoints);
 
@@ -167,18 +167,43 @@ public class GraphCalculationService : IGraphCalculationService
         var graph = Graph.Create(mathExpr, "x");
         graph.WithRange(xRange);
 
-        var calculator = new NumericalGraphCalculator(_evaluator);
+        var calculator = new NumericalGraphCalculator(evaluator);
         var mathPoints = calculator.Calculate(graph).ToList();
         graph.SetPoints(mathPoints);
 
-        var yValues = mathPoints.Where(p => !double.IsNaN(p.Y) && !double.IsInfinity(p.Y)).Select(p => p.Y);
-        var yMin = yValues.Any() ? yValues.Min() : -1;
-        var yMax = yValues.Any() ? yValues.Max() : 1;
-        var padding = (yMax - yMin) * 0.1;
-        
-        var yRange = NumericRange.Create(yMin - padding, yMax + padding, 0.1);
+        var yRange = CalculateYRangeFromGraphWithPadding(graph);
         graph.WithRange(yRange);
 
         return graph;
+    }
+
+    // Range calculation methods (integrated from GraphRangeService)
+    public NumericRange CalculateYRangeFromGraph(Graph graph)
+    {
+        if (graph.Points == null || !graph.Points.Any())
+            return NumericRange.Create(-1, 1, 0.1);
+
+        var yValues = graph.Points
+            .Where(p => !double.IsNaN(p.Y) && !double.IsInfinity(p.Y))
+            .Select(p => p.Y);
+
+        if (!yValues.Any())
+            return NumericRange.Create(-1, 1, 0.1);
+
+        var yMin = yValues.Min();
+        var yMax = yValues.Max();
+
+        return NumericRange.Create(yMin, yMax, 0.1);
+    }
+
+    public NumericRange CalculateYRangeFromGraphWithPadding(Graph graph, double paddingFactor = 0.1)
+    {
+        var yRange = CalculateYRangeFromGraph(graph);
+        var padding = (yRange.Max - yRange.Min) * paddingFactor;
+
+        return NumericRange.Create(
+            yRange.Min - padding,
+            yRange.Max + padding,
+            yRange.Step);
     }
 }

@@ -1,19 +1,24 @@
 using System.Drawing;
 using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.Services;
 using GraphCalc.Domain.ValueObjects;
 using GraphCalc.Presentation.Coordinates;
 using GraphCalc.Presentation.Mappers;
 using GraphCalc.Presentation.Models;
 
-namespace GraphCalc.Domain.Services;
+namespace GraphCalc.Presentation.Services;
 
 public class GraphDisplayService : IGraphDisplayService
 {
     private readonly ICoordinateTransformer _transformer;
+    private readonly IGraphCalculationService _calculationService;
 
-    public GraphDisplayService(ICoordinateTransformer? transformer = null)
+    public GraphDisplayService(
+        ICoordinateTransformer? transformer = null,
+        IGraphCalculationService? calculationService = null)
     {
         _transformer = transformer ?? new SimpleCoordinateTransformer();
+        _calculationService = calculationService ?? throw new ArgumentNullException(nameof(calculationService));
     }
 
     public RenderableGraph DisplayGraph(Graph graph, double yMin, double yMax, Size screenSize)
@@ -38,17 +43,7 @@ public class GraphDisplayService : IGraphDisplayService
             throw new InvalidOperationException("Graph must have a range set before display");
 
         var xRange = graph.Range;
-        
-        // Calculate Y range from points
-        var yValues = graph.Points
-            .Where(p => !double.IsNaN(p.Y) && !double.IsInfinity(p.Y))
-            .Select(p => p.Y);
-
-        var yMin = yValues.Any() ? yValues.Min() : -1;
-        var yMax = yValues.Any() ? yValues.Max() : 1;
-        var padding = (yMax - yMin) * 0.1;
-        
-        var yRange = NumericRange.Create(yMin - padding, yMax + padding, 0.1);
+        var yRange = _calculationService.CalculateYRangeFromGraphWithPadding(graph);
 
         return GraphToRenderableGraphMapper.Map(
             graph,
