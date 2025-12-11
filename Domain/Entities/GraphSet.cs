@@ -5,46 +5,59 @@ namespace GraphCalc.Domain.Entities;
 
 public class GraphSet : Entity
 {
-    private readonly List<Graph> graphs = new();
+    private readonly List<GraphItem> items = new();
+    private Guid userId;
 
-    private GraphSet(Guid id) : base(id) { }
-
-    public IReadOnlyList<Graph> Graphs => graphs.AsReadOnly();
-    public NumericRange? Range { get; private set; }
-
-    public static GraphSet Create() => new(Guid.NewGuid());
-
-    public GraphSet WithRange(NumericRange range)
+    private GraphSet(Guid id, Guid userId) : base(id)
     {
-        Range = range;
+        this.userId = userId;
+    }
+
+    public Guid UserId => userId;
+    public IReadOnlyList<GraphItem> Items => items.AsReadOnly();
+    public NumericRange? GlobalRange { get; private set; }
+
+    public static GraphSet Create(Guid userId) => new(Guid.NewGuid(), userId);
+
+    public GraphSet WithGlobalRange(NumericRange range)
+    {
+        GlobalRange = range;
         return this;
     }
 
-    public GraphSet AddGraph(Graph graph)
+    public GraphSet AddGraph(string expression, string independentVariable)
     {
-        if (graphs.Any(g => g.Id == graph.Id))
-            return this;
+        var graphItem = GraphItem.Create(
+            MathExpression.Create(expression),
+            independentVariable);
 
-        graphs.Add(graph);
-        if (Range != null)
-            graph.WithRange(Range);
+        if (GlobalRange != null)
+            graphItem.WithRange(GlobalRange);
+
+        items.Add(graphItem);
+        return this;
+    }
+
+    public GraphSet UpdateGraphExpression(Guid graphItemId, string newExpression)
+    {
+        var item = items.FirstOrDefault(g => g.Id == graphItemId);
+        if (item != null)
+            item.WithExpression(MathExpression.Create(newExpression));
 
         return this;
     }
 
-    public GraphSet RemoveGraph(Guid graphId)
+    public GraphSet RemoveGraph(Guid graphItemId)
     {
-        graphs.RemoveAll(g => g.Id == graphId);
+        items.RemoveAll(g => g.Id == graphItemId);
         return this;
     }
 
-    public GraphSet ApplyRange()
+    public GraphSet SetGraphVisibility(Guid graphItemId, bool isVisible)
     {
-        if (Range == null)
-            return this;
-
-        foreach (var graph in graphs)
-            graph.WithRange(Range);
+        var item = items.FirstOrDefault(g => g.Id == graphItemId);
+        if (item != null)
+            item.SetVisibility(isVisible);
 
         return this;
     }
