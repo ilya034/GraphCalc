@@ -30,9 +30,9 @@ public class UserController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult CreateUser([FromBody] UserDto userDto)
+    public IActionResult CreateUser([FromBody] UserCreateRequest request)
     {
-        var createdUserDto = userAppService.CreateUser(userDto);
+        var createdUserDto = userAppService.CreateUser(request);
         return CreatedAtAction(nameof(GetUserById), new { id = createdUserDto.Id }, createdUserDto);
     }
 

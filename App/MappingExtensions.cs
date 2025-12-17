@@ -50,7 +50,10 @@ public static class GraphMappingExtensions
 
     // User mappings
     public static User ToDomain(this UserDto dto)
-        => User.Create(dto.Username, dto.Email);
+        => User.CreateWithId(dto.Id, dto.Username, dto.Email);
+
+    public static User ToDomain(this UserCreateRequest request)
+        => User.Create(request.Username, request.Email);
 
     public static UserDto ToDto(this User domain)
         => new UserDto(domain.Id, domain.Username, domain.Email);

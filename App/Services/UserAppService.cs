@@ -35,9 +35,9 @@ public class UserAppService
         }
     }
 
-    public UserDto CreateUser(UserDto userDto)
+    public UserDto CreateUser(UserCreateRequest request)
     {
-        var user = userDto.ToDomain();
+        var user = request.ToDomain();
         userRepository.Add(user);
         return user.ToDto();
     }
