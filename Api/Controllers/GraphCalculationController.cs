@@ -148,14 +148,5 @@ public class GraphCalculationController : ControllerBase
 
         return CreatedAtAction(nameof(GetGraphById), new { id = graphSet.Id }, response);
     }
-
-    [HttpGet("user/{userId}/graphs")]
-    [ProducesResponseType(typeof(UserGraphsListResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetUserGraphs(Guid userId)
-    {
-        // Этот метод будет перенесен в UserController
-        return BadRequest("This endpoint has been moved to UserController");
-    }
 }
 

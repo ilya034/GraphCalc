@@ -5,51 +5,39 @@ namespace GraphCalc.Domain.Entities;
 
 public class Graph : Entity
 {
-    private readonly List<MathPoint> points = new();
-
-    private Graph(Guid id, MathExpression expression, string independentVariable)
+    private Graph(Guid id, NumericRange range, Guid authorId, List<GraphItem> items)
         : base(id)
     {
-        Expression = expression;
-        IndependentVariable = independentVariable;
-    }
-
-    public MathExpression Expression { get; private set; }
-    public string IndependentVariable { get; private init; }
-    public NumericRange? Range { get; private set; }
-    public IReadOnlyList<MathPoint> Points => points.AsReadOnly();
-
-    public static Graph Create(
-        MathExpression expression,
-        string independentVariable)
-         => new Graph(
-                Guid.NewGuid(),
-                expression,
-                independentVariable);
-
-    public Graph WithRange(NumericRange range)
-    {
         Range = range;
-        return this;
+        AuthorId = authorId;
+        Items = items;
     }
 
-    public Graph SetPoints(IEnumerable<MathPoint> points)
+    public NumericRange Range { get; private set; }
+    public Guid AuthorId { get; private set; }
+    public List<GraphItem> Items { get; private set; } = new();
+
+    public static Graph Create(NumericRange range, Guid authorId, List<GraphItem>? items = null)
     {
-        this.points.Clear();
-        this.points.AddRange(points);
-        return this;
+        return new Graph(
+            Guid.NewGuid(),
+            range,
+            authorId,
+            items ?? new List<GraphItem>());
     }
 
-    public Graph ClearPoints()
+    public void AddItem(GraphItem item)
     {
-        points.Clear();
-        return this;
+        Items.Add(item);
     }
 
-    public Graph WithExpression(MathExpression newExpression)
+    public void RemoveItem(GraphItem item)
     {
-        Expression = newExpression;
-        points.Clear();
-        return this;
+        Items.Remove(item);
+    }
+
+    public void UpdateRange(NumericRange newRange)
+    {
+        Range = newRange;
     }
 }
