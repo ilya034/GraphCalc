@@ -21,4 +21,9 @@ public class User : Entity
             username,
             email);
     }
+
+    public static User CreateWithId(Guid id, string username, string email)
+    {
+        return new User(id, username, email);
+    }
 }

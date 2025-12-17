@@ -26,6 +26,15 @@ public class Graph : Entity
             items ?? new List<GraphItem>());
     }
 
+    public static Graph CreateWithId(Guid id, NumericRange range, Guid authorId, List<GraphItem>? items = null)
+    {
+        return new Graph(
+            id,
+            range,
+            authorId,
+            items ?? new List<GraphItem>());
+    }
+
     public void AddItem(GraphItem item)
     {
         Items.Add(item);

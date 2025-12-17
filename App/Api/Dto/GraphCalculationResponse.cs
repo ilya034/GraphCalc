@@ -1,7 +1,5 @@
-using GraphCalc.Domain.ValueObjects;
+namespace GraphCalc.Api.Dtos;
 
 public record GraphCalculationResponse(
-    double[] YValues,
-    NumericRange Range,
-    string Expression
+    List<GraphSeriesDto> Series
 );
