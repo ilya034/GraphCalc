@@ -35,9 +35,16 @@ public class GraphAppService
         }
     }
 
-    public GraphDto CreateGraph(GraphDto graphDto)
+    public GraphDto CreateGraph(GraphCreateRequest request)
     {
-        var graph = graphDto.ToDomain();
+        var graph = request.ToDomain();
+        graphRepository.Add(graph);
+        return graph.ToDto();
+    }
+
+    public GraphDto CreateGraphWithAuthor(GraphCalculationRequest request, Guid authorId)
+    {
+        var graph = request.ToDomain(authorId);
         graphRepository.Add(graph);
         return graph.ToDto();
     }
@@ -88,14 +95,9 @@ public class GraphAppService
         }
     }
 
-    public GraphCalculationResponse CalculateGraphFromRequest(GraphCalculationRequest request)
+    public GraphCalculationResponse CalculateGraph(GraphCalculationRequest request)
     {
-        var range = request.Range.ToDomain();
-        var graph = Graph.Create(
-            range, 
-            new Guid(), 
-            request.Items.ToDomain().ToList());
-
+        var graph = request.ToDomain(Guid.Empty);
         var response = graphService.Calculate(graph);
         return new GraphCalculationResponse(response.ToDto().ToList());
     }

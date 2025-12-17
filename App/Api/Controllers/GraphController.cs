@@ -30,9 +30,9 @@ public class GraphController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult CreateGraph([FromBody] GraphDto graphDto)
+    public IActionResult CreateGraph([FromBody] GraphCalculationRequest request, [FromQuery] Guid authorId)
     {
-        var createdGraphDto = graphAppService.CreateGraph(graphDto);
+        var createdGraphDto = graphAppService.CreateGraphWithAuthor(request, authorId);
         return CreatedAtAction(nameof(GetGraphById), new { id = createdGraphDto.Id }, createdGraphDto);
     }
 
@@ -54,6 +54,13 @@ public class GraphController : ControllerBase
     public IActionResult CalculateGraph(Guid id)
     {
         var response = graphAppService.CalculateGraph(id);
+        return Ok(response);
+    }
+
+    [HttpPost("calculate")]
+    public IActionResult CalculateGraph([FromBody] GraphCalculationRequest request)
+    {
+        var response = graphAppService.CalculateGraph(request);
         return Ok(response);
     }
 }
