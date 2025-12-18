@@ -8,9 +8,9 @@ namespace GraphCalc.App.Services;
 public class GraphAppService
 {
     private readonly IGraphRepository graphRepository;
-    private readonly GraphCalculationService graphService;
+    private readonly IGraphCalculationService graphService;
 
-    public GraphAppService(IGraphRepository graphRepository, GraphCalculationService graphService)
+    public GraphAppService(IGraphRepository graphRepository, IGraphCalculationService graphService)
     {
         this.graphRepository = graphRepository;
         this.graphService = graphService;

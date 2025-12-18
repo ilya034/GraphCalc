@@ -4,7 +4,7 @@ using GraphCalc.Domain.Interfaces;
 
 namespace GraphCalc.Domain.Services;
 
-public class GraphCalculationService
+internal class GraphCalculationService : IGraphCalculationService
 {
     private readonly IGraphCalculator graphCalculator;
 
