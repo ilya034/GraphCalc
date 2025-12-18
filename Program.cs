@@ -7,6 +7,18 @@ using GraphCalc.Infra.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Настройка CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ViteDevPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // Vite dev server
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -30,6 +42,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseCors("ViteDevPolicy");
 
 app.MapControllers();
 app.Run();
