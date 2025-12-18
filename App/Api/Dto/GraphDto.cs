@@ -1,5 +1,3 @@
-using GraphCalc.Domain.ValueObjects;
-
 namespace GraphCalc.Api.Dtos;
 
 public record GraphDto(

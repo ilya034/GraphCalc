@@ -1,7 +1,6 @@
 using GraphCalc.Api.Dtos;
 using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
-using GraphCalc.App;
 
 namespace GraphCalc.App.Services;
 
