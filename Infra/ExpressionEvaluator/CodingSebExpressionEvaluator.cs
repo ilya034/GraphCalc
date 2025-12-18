@@ -1,7 +1,7 @@
 using GraphCalc.Domain.Interfaces;
 using CodingSeb.ExpressionEvaluator;
 
-namespace GraphCalc.Infrastructure.ExpressionEvaluation;
+namespace GraphCalc.Infra.ExpressionEvaluation;
 
 /// <summary>
 /// Implement IExpressionEvaluator using CodingSeb.ExpressionEvaluator

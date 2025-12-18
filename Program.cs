@@ -1,8 +1,8 @@
 using GraphCalc.App.Services;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.Services;
-using GraphCalc.Infrastructure.ExpressionEvaluation;
-using GraphCalc.Infrastructure.GraphCalculation;
+using GraphCalc.Infra.ExpressionEvaluation;
+using GraphCalc.Infra.GraphCalculation;
 using GraphCalc.Infra.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);

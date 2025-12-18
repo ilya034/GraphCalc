@@ -2,7 +2,7 @@ using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.ValueObjects;
 
-namespace GraphCalc.Infrastructure.GraphCalculation;
+namespace GraphCalc.Infra.GraphCalculation;
 
 public sealed class SimpleGraphCalculator : IGraphCalculator
 {
