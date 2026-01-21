@@ -18,7 +18,7 @@ internal class InMemoryRepository<TEntity> : IRepository<TEntity> where TEntity 
         if (entities.TryGetValue(id, out var entity))
             return entity;
 
-        throw new KeyNotFoundException($"Entity with id {id} not found.");
+        throw new GraphCalc.Domain.Exceptions.NotFoundException($"Entity with id {id} not found.");
     }
 
     public virtual void Add(TEntity entity)
@@ -35,7 +35,7 @@ internal class InMemoryRepository<TEntity> : IRepository<TEntity> where TEntity 
             throw new ArgumentNullException(nameof(entity));
         
         if (!entities.ContainsKey(entity.Id))
-            throw new KeyNotFoundException($"Entity with id {entity.Id} not found.");
+            throw new GraphCalc.Domain.Exceptions.NotFoundException($"Entity with id {entity.Id} not found.");
         
         entities[entity.Id] = entity;
     }
@@ -43,7 +43,7 @@ internal class InMemoryRepository<TEntity> : IRepository<TEntity> where TEntity 
     public virtual void Delete(Guid id)
     {
         if (!entities.ContainsKey(id))
-            throw new KeyNotFoundException($"Entity with id {id} not found.");
+            throw new GraphCalc.Domain.Exceptions.NotFoundException($"Entity with id {id} not found.");
         
         entities.TryRemove(id, out _);
     }

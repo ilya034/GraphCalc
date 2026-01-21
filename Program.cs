@@ -37,15 +37,15 @@ builder.Services.AddScoped<IGraphCalculator, SimpleGraphCalculator>();
 
 var app = builder.Build();
 
-// Регистрация middleware для обработки исключений (должен быть первым)
-app.UseExceptionHandling();
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 app.UseCors("ViteDevPolicy");
+
+// Global exception handling middleware
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapControllers();
 app.Run();

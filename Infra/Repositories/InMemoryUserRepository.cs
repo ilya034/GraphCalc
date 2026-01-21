@@ -9,6 +9,6 @@ internal class InMemoryUserRepository : InMemoryRepository<User>, IUserRepositor
     {
         return entities.Values
             .FirstOrDefault(user => user.Email.Equals(email, StringComparison.OrdinalIgnoreCase))
-            ?? throw new KeyNotFoundException($"User with email {email} not found.");
+            ?? throw new GraphCalc.Domain.Exceptions.NotFoundException($"User with email {email} not found.");
     }
 }

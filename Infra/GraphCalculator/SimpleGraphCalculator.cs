@@ -1,7 +1,6 @@
 using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.ValueObjects;
-using GraphCalc.Domain.Exceptions;
 
 namespace GraphCalc.Infra.GraphCalculation;
 
@@ -26,10 +25,10 @@ internal sealed class SimpleGraphCalculator : IGraphCalculator
                 if (!double.IsInfinity(y) && !double.IsNaN(y))
                     point = new MathPoint(x, y);
             }
-            catch
+            catch (Exception ex)
             {
-                // Ошибка вычисления - пропускаем эту точку
-                // Возможные причины: деление на ноль, домен функции, переполнение
+                // Log and continue: a single point evaluation failure shouldn't break the whole calculation.
+                System.Diagnostics.Debug.WriteLine($"Evaluation error for x={x}: {ex.Message}");
             }
 
             if (point != null)
