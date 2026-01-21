@@ -1,4 +1,5 @@
 using GraphCalc.Api.Dtos;
+using GraphCalc.App;
 using GraphCalc.Domain.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,14 +19,16 @@ public class UserController : ControllerBase
     [HttpGet]
     public IActionResult GetAllUsers()
     {
-        var userDtos = userAppService.GetAllUsers();
+        var users = userAppService.GetAllUsers();
+        var userDtos = users.ToDto();
         return Ok(userDtos);
     }
 
     [HttpGet("{id}")]
     public IActionResult GetUserById(Guid id)
     {
-        var userDto = userAppService.GetUserById(id);
+        var user = userAppService.GetUserById(id);
+        var userDto = user.ToDto();
         return Ok(userDto);
     }
 
@@ -33,7 +36,8 @@ public class UserController : ControllerBase
     public IActionResult CreateUser([FromBody] UserCreateRequest request)
     {
         ValidateUserCreateRequest(request);
-        var createdUserDto = userAppService.CreateUser(request);
+        var createdUser = userAppService.CreateUser(request);
+        var createdUserDto = createdUser.ToDto();
         return CreatedAtAction(nameof(GetUserById), new { id = createdUserDto.Id }, createdUserDto);
     }
 
@@ -42,7 +46,8 @@ public class UserController : ControllerBase
     {
         ValidateGuid(id, nameof(id));
         ValidateUserDto(userDto);
-        var updatedUserDto = userAppService.UpdateUser(id, userDto);
+        var updatedUser = userAppService.UpdateUser(id, userDto);
+        var updatedUserDto = updatedUser.ToDto();
         return Ok(updatedUserDto);
     }
 
@@ -57,7 +62,8 @@ public class UserController : ControllerBase
     public IActionResult GetGraphsByUserId(Guid userId)
     {
         ValidateGuid(userId, nameof(userId));
-        var graphDtos = userAppService.GetGraphsByUserId(userId);
+        var graphs = userAppService.GetGraphsByUserId(userId);
+        var graphDtos = graphs.ToDto();
         return Ok(graphDtos);
     }
 

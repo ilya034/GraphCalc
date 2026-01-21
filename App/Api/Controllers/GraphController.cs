@@ -1,4 +1,5 @@
 using GraphCalc.Api.Dtos;
+using GraphCalc.App;
 using GraphCalc.Domain.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,14 +19,16 @@ public class GraphController : ControllerBase
     [HttpGet]
     public IActionResult GetAllGraphs()
     {
-        var graphDtos = graphAppService.GetAllGraphs();
+        var graphs = graphAppService.GetAllGraphs();
+        var graphDtos = graphs.ToDto();
         return Ok(graphDtos);
     }
 
     [HttpGet("{id}")]
     public IActionResult GetGraphById(Guid id)
     {
-        var graphDto = graphAppService.GetGraphById(id);
+        var graph = graphAppService.GetGraphById(id);
+        var graphDto = graph.ToDto();
         return Ok(graphDto);
     }
 
@@ -34,7 +37,8 @@ public class GraphController : ControllerBase
     {
         ValidateGraphCalculationRequest(request);
         ValidateGuid(authorId, nameof(authorId));
-        var createdGraphDto = graphAppService.CreateGraphWithAuthor(request, authorId);
+        var createdGraph = graphAppService.CreateGraphWithAuthor(request, authorId);
+        var createdGraphDto = createdGraph.ToDto();
         return CreatedAtAction(nameof(GetGraphById), new { id = createdGraphDto.Id }, createdGraphDto);
     }
 
@@ -43,7 +47,8 @@ public class GraphController : ControllerBase
     {
         ValidateGuid(id, nameof(id));
         ValidateGraphDto(graphDto);
-        var updatedGraphDto = graphAppService.UpdateGraph(id, graphDto);
+        var updatedGraph = graphAppService.UpdateGraph(id, graphDto);
+        var updatedGraphDto = updatedGraph.ToDto();
         return Ok(updatedGraphDto);
     }
 
@@ -57,16 +62,18 @@ public class GraphController : ControllerBase
     [HttpPost("{id}/calculate")]
     public IActionResult CalculateGraph(Guid id)
     {
-        var response = graphAppService.CalculateGraph(id);
-        return Ok(response);
+        var series = graphAppService.CalculateGraph(id);
+        var dto = new GraphCalculationResponse(series.ToDto().ToList());
+        return Ok(dto);
     }
 
     [HttpPost("calculate")]
     public IActionResult CalculateGraph([FromBody] GraphCalculationRequest request)
     {
         ValidateGraphCalculationRequest(request);
-        var response = graphAppService.CalculateGraph(request);
-        return Ok(response);
+        var series = graphAppService.CalculateGraph(request);
+        var dto = new GraphCalculationResponse(series.ToDto().ToList());
+        return Ok(dto);
     }
 
     private void ValidateGraphCalculationRequest(GraphCalculationRequest request)

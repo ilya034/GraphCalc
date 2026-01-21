@@ -16,31 +16,31 @@ internal class UserAppService : IUserAppService
         this.graphRepository = graphRepository;
     }
 
-    public IEnumerable<UserDto> GetAllUsers()
+    public IEnumerable<User> GetAllUsers()
     {
         var users = userRepository.GetAll();
-        return users.ToDto();
+        return users;
     }
 
-    public UserDto GetUserById(Guid id)
+    public User GetUserById(Guid id)
     {
         var user = userRepository.GetById(id);
-        return user.ToDto();
+        return user;
     }
 
-    public UserDto CreateUser(UserCreateRequest request)
+    public User CreateUser(UserCreateRequest request)
     {
         var user = request.ToDomain();
         userRepository.Add(user);
-        return user.ToDto();
+        return user;
     }
 
-    public UserDto UpdateUser(Guid id, UserDto userDto)
+    public User UpdateUser(Guid id, UserDto userDto)
     {
         var existingUser = userRepository.GetById(id);
         var updatedUser = User.CreateWithId(id, userDto.Username, userDto.Email);
         userRepository.Update(updatedUser);
-        return updatedUser.ToDto();
+        return updatedUser;
     }
 
     public void DeleteUser(Guid id)
@@ -48,9 +48,9 @@ internal class UserAppService : IUserAppService
         userRepository.Delete(id);
     }
 
-    public IEnumerable<GraphDto> GetGraphsByUserId(Guid userId)
+    public IEnumerable<Graph> GetGraphsByUserId(Guid userId)
     {
         var graphs = graphRepository.GetByUserId(userId);
-        return graphs.ToDto();
+        return graphs;
     }
 }

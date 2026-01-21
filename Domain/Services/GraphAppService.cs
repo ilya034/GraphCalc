@@ -2,6 +2,7 @@ using GraphCalc.Api.Dtos;
 using GraphCalc.App;
 using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
+using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Domain.Services;
 
@@ -16,33 +17,33 @@ internal class GraphAppService : IGraphAppService
         this.graphService = graphService;
     }
 
-    public IEnumerable<GraphDto> GetAllGraphs()
+    public IEnumerable<Graph> GetAllGraphs()
     {
         var graphs = graphRepository.GetAll();
-        return graphs.ToDto();
+        return graphs;
     }
 
-    public GraphDto GetGraphById(Guid id)
+    public Graph GetGraphById(Guid id)
     {
         var graph = graphRepository.GetById(id);
-        return graph.ToDto();
+        return graph;
     }
 
-    public GraphDto CreateGraph(GraphCreateRequest request)
+    public Graph CreateGraph(GraphCreateRequest request)
     {
         var graph = request.ToDomain();
         graphRepository.Add(graph);
-        return graph.ToDto();
+        return graph;
     }
 
-    public GraphDto CreateGraphWithAuthor(GraphCalculationRequest request, Guid authorId)
+    public Graph CreateGraphWithAuthor(GraphCalculationRequest request, Guid authorId)
     {
         var graph = request.ToDomain(authorId);
         graphRepository.Add(graph);
-        return graph.ToDto();
+        return graph;
     }
 
-    public GraphDto UpdateGraph(Guid id, GraphDto graphDto)
+    public Graph UpdateGraph(Guid id, GraphDto graphDto)
     {
         var existingGraph = graphRepository.GetById(id);
         var updatedGraph = Graph.CreateWithId(
@@ -52,7 +53,7 @@ internal class GraphAppService : IGraphAppService
             graphDto.Items.ToDomain().ToList());
 
         graphRepository.Update(updatedGraph);
-        return updatedGraph.ToDto();
+        return updatedGraph;
     }
 
     public void DeleteGraph(Guid id)
@@ -60,17 +61,17 @@ internal class GraphAppService : IGraphAppService
         graphRepository.Delete(id);
     }
 
-    public GraphCalculationResponse CalculateGraph(Guid id)
+    public List<Series> CalculateGraph(Guid id)
     {
         var graph = graphRepository.GetById(id);
         var response = graphService.Calculate(graph);
-        return new GraphCalculationResponse(response.ToDto().ToList());
+        return response;
     }
 
-    public GraphCalculationResponse CalculateGraph(GraphCalculationRequest request)
+    public List<Series> CalculateGraph(GraphCalculationRequest request)
     {
         var graph = request.ToDomain(Guid.Empty);
         var response = graphService.Calculate(graph);
-        return new GraphCalculationResponse(response.ToDto().ToList());
+        return response;
     }
 }
