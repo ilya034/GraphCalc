@@ -5,7 +5,7 @@ using GraphCalc.Domain.Interfaces;
 
 namespace GraphCalc.Domain.Services;
 
-public class UserAppService : IUserAppService
+internal class UserAppService : IUserAppService
 {
     private readonly IUserRepository userRepository;
     private readonly IGraphRepository graphRepository;

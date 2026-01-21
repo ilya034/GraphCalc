@@ -3,7 +3,7 @@ using GraphCalc.Domain.Entities;
 
 namespace GraphCalc.App;
 
-public static class UserMappingExtensions
+internal static class UserMappingExtensions
 {
     public static User ToDomain(this UserDto dto)
         => User.CreateWithId(dto.Id, dto.Username, dto.Email);

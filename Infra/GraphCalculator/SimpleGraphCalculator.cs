@@ -4,7 +4,7 @@ using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Infra.GraphCalculation;
 
-public sealed class SimpleGraphCalculator : IGraphCalculator
+internal sealed class SimpleGraphCalculator : IGraphCalculator
 {
     private readonly IExpressionEvaluator evaluator;
 

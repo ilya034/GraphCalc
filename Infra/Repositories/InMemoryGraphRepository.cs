@@ -3,7 +3,7 @@ using GraphCalc.Domain.Interfaces;
 
 namespace GraphCalc.Infra.Repositories;
 
-public class InMemoryGraphRepository : InMemoryRepository<Graph>, IGraphRepository
+internal class InMemoryGraphRepository : InMemoryRepository<Graph>, IGraphRepository
 {
     public IEnumerable<Graph> GetByUserId(Guid userId)
     {

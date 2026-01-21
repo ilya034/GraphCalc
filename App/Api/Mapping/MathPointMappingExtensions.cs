@@ -3,7 +3,7 @@ using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.App;
 
-public static class MathPointMappingExtensions
+internal static class MathPointMappingExtensions
 {
     public static MathPoint ToDomain(this PointDto dto)
         => new MathPoint(dto.X, dto.Y);

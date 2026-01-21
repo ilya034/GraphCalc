@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 
 namespace GraphCalc.Infra.Repositories;
 
-public class InMemoryRepository<TEntity> : IRepository<TEntity> where TEntity : Entity
+internal class InMemoryRepository<TEntity> : IRepository<TEntity> where TEntity : Entity
 {
     protected readonly ConcurrentDictionary<Guid, TEntity> entities = new();
 

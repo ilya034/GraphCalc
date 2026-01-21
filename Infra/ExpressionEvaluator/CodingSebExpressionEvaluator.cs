@@ -7,7 +7,7 @@ namespace GraphCalc.Infra.ExpressionEvaluation;
 /// Implement IExpressionEvaluator using CodingSeb.ExpressionEvaluator
 /// https://github.com/codingseb/ExpressionEvaluator
 /// </summary>
-public sealed class CodingSebExpressionEvaluator : IExpressionEvaluator
+internal sealed class CodingSebExpressionEvaluator : IExpressionEvaluator
 {
     private readonly ExpressionEvaluator evaluator;
     private readonly object locker = new();

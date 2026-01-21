@@ -3,7 +3,7 @@ using GraphCalc.Domain.Interfaces;
 
 namespace GraphCalc.Infra.Repositories;
 
-public class InMemoryUserRepository : InMemoryRepository<User>, IUserRepository
+internal class InMemoryUserRepository : InMemoryRepository<User>, IUserRepository
 {
     public User GetByEmail(string email)
     {

@@ -3,7 +3,7 @@ using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.App;
 
-public static class GraphItemMappingExtensions
+internal static class GraphItemMappingExtensions
 {
     public static GraphItem ToDomain(this GraphItemDto dto)
         => new GraphItem(dto.Expression, dto.IsVisible);

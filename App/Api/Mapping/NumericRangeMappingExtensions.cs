@@ -3,7 +3,7 @@ using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.App;
 
-public static class NumericRangeMappingExtensions
+internal static class NumericRangeMappingExtensions
 {
     public static NumericRange ToDomain(this NumericRangeDto dto)
         => new NumericRange(dto.Min, dto.Max, dto.Step);

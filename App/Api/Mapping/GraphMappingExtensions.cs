@@ -3,7 +3,7 @@ using GraphCalc.Domain.Entities;
 
 namespace GraphCalc.App;
 
-public static class GraphMappingExtensions
+internal static class GraphMappingExtensions
 {
     public static Graph ToDomain(this GraphDto dto)
         => Graph.CreateWithId(dto.Id, dto.Range.ToDomain(), dto.AuthorId, dto.Items.ToDomain().ToList());

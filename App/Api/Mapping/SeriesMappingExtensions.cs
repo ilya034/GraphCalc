@@ -3,7 +3,7 @@ using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.App;
 
-public static class SeriesMappingExtensions
+internal static class SeriesMappingExtensions
 {
     public static Series ToDomain(this GraphSeriesDto dto)
         => new Series(dto.Expression, dto.Points.ToDomain());
