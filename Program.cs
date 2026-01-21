@@ -3,6 +3,7 @@ using GraphCalc.Domain.Interfaces;
 using GraphCalc.Infra.ExpressionEvaluation;
 using GraphCalc.Infra.GraphCalculation;
 using GraphCalc.Infra.Repositories;
+using GraphCalc.App.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,9 @@ builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
 builder.Services.AddScoped<IGraphCalculator, SimpleGraphCalculator>();
 
 var app = builder.Build();
+
+// Регистрация middleware для обработки исключений (должен быть первым)
+app.UseExceptionHandling();
 
 if (app.Environment.IsDevelopment())
 {
