@@ -1,5 +1,5 @@
 using GraphCalc.Api.Dtos;
-using GraphCalc.App.Services;
+using GraphCalc.Domain.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GraphCalc.Api.Controllers;
@@ -8,9 +8,9 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/graphs")]
 public class GraphController : ControllerBase
 {
-    private readonly GraphAppService graphAppService;
+    private readonly IGraphAppService graphAppService;
 
-    public GraphController(GraphAppService graphAppService)
+    public GraphController(IGraphAppService graphAppService)
     {
         this.graphAppService = graphAppService;
     }

@@ -1,10 +1,11 @@
 using GraphCalc.Api.Dtos;
+using GraphCalc.App;
 using GraphCalc.Domain.Entities;
 using GraphCalc.Domain.Interfaces;
 
-namespace GraphCalc.App.Services;
+namespace GraphCalc.Domain.Services;
 
-public class UserAppService
+public class UserAppService : IUserAppService
 {
     private readonly IUserRepository userRepository;
     private readonly IGraphRepository graphRepository;

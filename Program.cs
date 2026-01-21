@@ -1,6 +1,5 @@
-using GraphCalc.App.Services;
-using GraphCalc.Domain.Interfaces;
 using GraphCalc.Domain.Services;
+using GraphCalc.Domain.Interfaces;
 using GraphCalc.Infra.ExpressionEvaluation;
 using GraphCalc.Infra.GraphCalculation;
 using GraphCalc.Infra.Repositories;
@@ -23,8 +22,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<GraphAppService>();
-builder.Services.AddScoped<UserAppService>();
+builder.Services.AddScoped<IGraphAppService, GraphAppService>();
+builder.Services.AddScoped<IUserAppService, UserAppService>();
 
 builder.Services.AddScoped<GraphCalculationService>();
 
