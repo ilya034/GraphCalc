@@ -1,0 +1,1239 @@
+
+==========
+File: .\Program.cs
+==========
+
+using GraphCalc.Domain.Services;
+using GraphCalc.Domain.Interfaces;
+using GraphCalc.Infra.ExpressionEvaluation;
+using GraphCalc.Infra.GraphCalculation;
+using GraphCalc.Infra.Repositories;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Настройка CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ViteDevPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // Vite dev server
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped<IGraphAppService, GraphAppService>();
+builder.Services.AddScoped<IUserAppService, UserAppService>();
+
+builder.Services.AddScoped<GraphCalculationService>();
+
+builder.Services.AddSingleton<IExpressionEvaluator, CodingSebExpressionEvaluator>();
+
+builder.Services.AddSingleton<IGraphRepository, InMemoryGraphRepository>();
+builder.Services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+
+builder.Services.AddScoped<IGraphCalculator, SimpleGraphCalculator>();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+app.UseCors("ViteDevPolicy");
+
+app.MapControllers();
+app.Run();
+
+
+==========
+File: .\App\Api\Controllers\GraphController.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.App;
+using GraphCalc.Domain.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace GraphCalc.Api.Controllers;
+
+[ApiController]
+[Route("api/graphs")]
+public class GraphController : ControllerBase
+{
+    private readonly IGraphAppService graphAppService;
+
+    public GraphController(IGraphAppService graphAppService)
+    {
+        this.graphAppService = graphAppService;
+    }
+
+    [HttpGet]
+    public IActionResult GetAllGraphs()
+    {
+        var graphs = graphAppService.GetAllGraphs();
+        var graphDtos = graphs.ToDto();
+        return Ok(graphDtos);
+    }
+
+    [HttpGet("{id}")]
+    public IActionResult GetGraphById(Guid id)
+    {
+        var graph = graphAppService.GetGraphById(id);
+        var graphDto = graph.ToDto();
+        return Ok(graphDto);
+    }
+
+    [HttpPost]
+    public IActionResult CreateGraph([FromBody] GraphCalculationRequest request, [FromQuery] Guid authorId)
+    {
+        ValidateGraphCalculationRequest(request);
+        ValidateGuid(authorId, nameof(authorId));
+        var createdGraph = graphAppService.CreateGraphWithAuthor(request, authorId);
+        var createdGraphDto = createdGraph.ToDto();
+        return CreatedAtAction(nameof(GetGraphById), new { id = createdGraphDto.Id }, createdGraphDto);
+    }
+
+    [HttpPut("{id}")]
+    public IActionResult UpdateGraph(Guid id, [FromBody] GraphDto graphDto)
+    {
+        ValidateGuid(id, nameof(id));
+        ValidateGraphDto(graphDto);
+        var updatedGraph = graphAppService.UpdateGraph(id, graphDto);
+        var updatedGraphDto = updatedGraph.ToDto();
+        return Ok(updatedGraphDto);
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult DeleteGraph(Guid id)
+    {
+        graphAppService.DeleteGraph(id);
+        return NoContent();
+    }
+
+    [HttpPost("{id}/calculate")]
+    public IActionResult CalculateGraph(Guid id)
+    {
+        var series = graphAppService.CalculateGraph(id);
+        var dto = new GraphCalculationResponse(series.ToDto().ToList());
+        return Ok(dto);
+    }
+
+    [HttpPost("calculate")]
+    public IActionResult CalculateGraph([FromBody] GraphCalculationRequest request)
+    {
+        ValidateGraphCalculationRequest(request);
+        var series = graphAppService.CalculateGraph(request);
+        var dto = new GraphCalculationResponse(series.ToDto().ToList());
+        return Ok(dto);
+    }
+
+    private void ValidateGraphCalculationRequest(GraphCalculationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Range);
+        ValidateNumericRange(request.Range);
+    }
+
+    private void ValidateNumericRange(NumericRangeDto range)
+    {
+        if (range.Min > range.Max)
+            throw new ArgumentException($"Min value ({range.Min}) cannot be greater than Max value ({range.Max}).");
+
+        if (range.Step <= 0)
+            throw new ArgumentException($"Step value must be greater than 0. Provided: {range.Step}");
+
+        if (double.IsNaN(range.Min) || double.IsNaN(range.Max) || double.IsNaN(range.Step))
+            throw new ArgumentException("Range values cannot be NaN.");
+
+        if (double.IsInfinity(range.Min) || double.IsInfinity(range.Max) || double.IsInfinity(range.Step))
+            throw new ArgumentException("Range values cannot be infinite.");
+    }
+
+    private void ValidateGraphDto(GraphDto graphDto)
+    {
+        ArgumentNullException.ThrowIfNull(graphDto);
+
+        ValidateGuid(graphDto.Id, nameof(graphDto.Id));
+        ValidateGuid(graphDto.AuthorId, nameof(graphDto.AuthorId));
+
+        ArgumentNullException.ThrowIfNull(graphDto.Range);
+
+        ValidateNumericRange(graphDto.Range);
+
+        if (graphDto.Items == null || graphDto.Items.Count == 0)
+            throw new ArgumentException("Items collection cannot be null or empty.", nameof(graphDto.Items));
+    }
+
+    private void ValidateGuid(Guid id, string paramName)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException($"{paramName} cannot be empty.", paramName);
+    }
+}
+
+
+==========
+File: .\App\Api\Controllers\UserController.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.App;
+using GraphCalc.Domain.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace GraphCalc.Api.Controllers;
+
+[ApiController]
+[Route("api/users")]
+public class UserController : ControllerBase
+{
+    private readonly IUserAppService userAppService;
+
+    public UserController(IUserAppService userAppService)
+    {
+        this.userAppService = userAppService;
+    }
+
+    [HttpGet]
+    public IActionResult GetAllUsers()
+    {
+        var users = userAppService.GetAllUsers();
+        var userDtos = users.ToDto();
+        return Ok(userDtos);
+    }
+
+    [HttpGet("{id}")]
+    public IActionResult GetUserById(Guid id)
+    {
+        var user = userAppService.GetUserById(id);
+        var userDto = user.ToDto();
+        return Ok(userDto);
+    }
+
+    [HttpPost]
+    public IActionResult CreateUser([FromBody] UserCreateRequest request)
+    {
+        ValidateUserCreateRequest(request);
+        var createdUser = userAppService.CreateUser(request);
+        var createdUserDto = createdUser.ToDto();
+        return CreatedAtAction(nameof(GetUserById), new { id = createdUserDto.Id }, createdUserDto);
+    }
+
+    [HttpPut("{id}")]
+    public IActionResult UpdateUser(Guid id, [FromBody] UserDto userDto)
+    {
+        ValidateGuid(id, nameof(id));
+        ValidateUserDto(userDto);
+        var updatedUser = userAppService.UpdateUser(id, userDto);
+        var updatedUserDto = updatedUser.ToDto();
+        return Ok(updatedUserDto);
+    }
+
+    [HttpDelete("{id}")]
+    public IActionResult DeleteUser(Guid id)
+    {
+        userAppService.DeleteUser(id);
+        return NoContent();
+    }
+
+    [HttpGet("{userId}/graphs")]
+    public IActionResult GetGraphsByUserId(Guid userId)
+    {
+        ValidateGuid(userId, nameof(userId));
+        var graphs = userAppService.GetGraphsByUserId(userId);
+        var graphDtos = graphs.ToDto();
+        return Ok(graphDtos);
+    }
+
+    private void ValidateUserCreateRequest(UserCreateRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.Username))
+            throw new ArgumentException("Username cannot be null or empty.", nameof(request.Username));
+
+        if (request.Username.Length > 255)
+            throw new ArgumentException("Username cannot exceed 255 characters.", nameof(request.Username));
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ArgumentException("Email cannot be null or empty.", nameof(request.Email));
+
+        if (request.Email.Length > 255)
+            throw new ArgumentException("Email cannot exceed 255 characters.", nameof(request.Email));
+    }
+
+    private void ValidateUserDto(UserDto userDto)
+    {
+        ArgumentNullException.ThrowIfNull(userDto);
+
+        ValidateGuid(userDto.Id, nameof(userDto.Id));
+
+        if (string.IsNullOrWhiteSpace(userDto.Username))
+            throw new ArgumentException("Username cannot be null or empty.", nameof(userDto.Username));
+
+        if (userDto.Username.Length > 255)
+            throw new ArgumentException("Username cannot exceed 255 characters.", nameof(userDto.Username));
+
+        if (string.IsNullOrWhiteSpace(userDto.Email))
+            throw new ArgumentException("Email cannot be null or empty.", nameof(userDto.Email));
+
+        if (userDto.Email.Length > 255)
+            throw new ArgumentException("Email cannot exceed 255 characters.", nameof(userDto.Email));
+    }
+
+    private void ValidateGuid(Guid id, string paramName)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException($"{paramName} cannot be empty.", paramName);
+    }
+}
+
+==========
+File: .\App\Api\Dto\GraphCalculationRequest.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record GraphCalculationRequest(
+    List<GraphItemDto> Items,
+    NumericRangeDto Range
+);
+
+==========
+File: .\App\Api\Dto\GraphCalculationResponse.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record GraphCalculationResponse(
+    List<GraphSeriesDto> Series
+);
+
+==========
+File: .\App\Api\Dto\GraphCreateRequest.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record GraphCreateRequest(
+    NumericRangeDto Range,
+    Guid AuthorId,
+    List<GraphItemDto> Items
+);
+
+
+==========
+File: .\App\Api\Dto\GraphDto.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record GraphDto(
+    Guid Id,
+    NumericRangeDto Range,
+    Guid AuthorId,
+    List<GraphItemDto> Items
+);
+
+==========
+File: .\App\Api\Dto\GraphItemDto.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record GraphItemDto(
+    string Expression,
+    bool IsVisible
+);
+
+==========
+File: .\App\Api\Dto\GraphSeriesDto.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record GraphSeriesDto(
+    string Expression,
+    List<PointDto> Points
+);
+
+==========
+File: .\App\Api\Dto\NumericRangeDto.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record NumericRangeDto(
+    double Min, 
+    double Max, 
+    double Step
+);
+
+==========
+File: .\App\Api\Dto\PointDto.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record PointDto(
+    double X,
+    double Y
+);
+
+==========
+File: .\App\Api\Dto\UserCreateRequest.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record UserCreateRequest(
+    string Username,
+    string Email
+);
+
+
+==========
+File: .\App\Api\Dto\UserDto.cs
+==========
+
+namespace GraphCalc.Api.Dtos;
+
+public record UserDto(
+    Guid Id,
+    string Username,
+    string Email
+);
+
+==========
+File: .\App\Api\Mapping\GraphItemMappingExtensions.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.App;
+
+internal static class GraphItemMappingExtensions
+{
+    public static GraphItem ToDomain(this GraphItemDto dto)
+        => new GraphItem(dto.Expression, dto.IsVisible);
+
+    public static GraphItemDto ToDto(this GraphItem domain)
+        => new GraphItemDto(domain.Expression, domain.IsVisible);
+
+    public static IEnumerable<GraphItem> ToDomain(this IEnumerable<GraphItemDto> dtos)
+        => dtos.Select(dto => dto.ToDomain());
+
+    public static IEnumerable<GraphItemDto> ToDto(this IEnumerable<GraphItem> domains)
+        => domains.Select(domain => domain.ToDto());
+}
+
+
+==========
+File: .\App\Api\Mapping\GraphMappingExtensions.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.Domain.Entities;
+
+namespace GraphCalc.App;
+
+internal static class GraphMappingExtensions
+{
+    public static Graph ToDomain(this GraphDto dto)
+        => Graph.CreateWithId(dto.Id, dto.Range.ToDomain(), dto.AuthorId, dto.Items.ToDomain().ToList());
+
+    public static Graph ToDomain(this GraphCreateRequest request)
+        => Graph.Create(request.Range.ToDomain(), request.AuthorId, request.Items.ToDomain().ToList());
+
+    public static Graph ToDomain(this GraphCalculationRequest request, Guid authorId)
+        => Graph.Create(request.Range.ToDomain(), authorId, request.Items.ToDomain().ToList());
+
+    public static GraphDto ToDto(this Graph domain)
+        => new GraphDto(domain.Id, domain.Range.ToDto(), domain.AuthorId, domain.Items.ToDto().ToList());
+
+    public static IEnumerable<Graph> ToDomain(this IEnumerable<GraphDto> dtos)
+        => dtos.Select(dto => dto.ToDomain());
+
+    public static IEnumerable<GraphDto> ToDto(this IEnumerable<Graph> domains)
+        => domains.Select(domain => domain.ToDto());
+}
+
+
+==========
+File: .\App\Api\Mapping\MathPointMappingExtensions.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.App;
+
+internal static class MathPointMappingExtensions
+{
+    public static MathPoint ToDomain(this PointDto dto)
+        => new MathPoint(dto.X, dto.Y);
+
+    public static PointDto ToDto(this MathPoint domain)
+        => new PointDto(domain.X, domain.Y);
+
+    public static IEnumerable<MathPoint> ToDomain(this IEnumerable<PointDto> dtos)
+        => dtos.Select(dto => dto.ToDomain());
+
+    public static IEnumerable<PointDto> ToDto(this IEnumerable<MathPoint> domains)
+        => domains.Select(domain => domain.ToDto());
+}
+
+
+==========
+File: .\App\Api\Mapping\NumericRangeMappingExtensions.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.App;
+
+internal static class NumericRangeMappingExtensions
+{
+    public static NumericRange ToDomain(this NumericRangeDto dto)
+        => new NumericRange(dto.Min, dto.Max, dto.Step);
+
+    public static NumericRangeDto ToDto(this NumericRange domain)
+        => new NumericRangeDto(domain.Min, domain.Max, domain.Step);
+}
+
+
+==========
+File: .\App\Api\Mapping\SeriesMappingExtensions.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.App;
+
+internal static class SeriesMappingExtensions
+{
+    public static Series ToDomain(this GraphSeriesDto dto)
+        => new Series(dto.Expression, dto.Points.ToDomain());
+
+    public static GraphSeriesDto ToDto(this Series domain)
+        => new GraphSeriesDto(domain.Expression, domain.Points.ToDto().ToList());
+
+    public static IEnumerable<Series> ToDomain(this IEnumerable<GraphSeriesDto> dtos)
+        => dtos.Select(dto => dto.ToDomain());
+
+    public static IEnumerable<GraphSeriesDto> ToDto(this IEnumerable<Series> domains)
+        => domains.Select(domain => domain.ToDto());
+}
+
+
+==========
+File: .\App\Api\Mapping\UserMappingExtensions.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.Domain.Entities;
+
+namespace GraphCalc.App;
+
+internal static class UserMappingExtensions
+{
+    public static User ToDomain(this UserDto dto)
+        => User.CreateWithId(dto.Id, dto.Username, dto.Email);
+
+    public static User ToDomain(this UserCreateRequest request)
+        => User.Create(request.Username, request.Email);
+
+    public static UserDto ToDto(this User domain)
+        => new UserDto(domain.Id, domain.Username, domain.Email);
+
+    public static IEnumerable<UserDto> ToDto(this IEnumerable<User> domains)
+        => domains.Select(domain => domain.ToDto());
+}
+
+
+==========
+File: .\Domain\Common\Entity.cs
+==========
+
+namespace GraphCalc.Domain.Common;
+
+public abstract class Entity
+{
+    public Guid Id { get; protected set; }
+
+    protected Entity()
+    {
+        Id = Guid.NewGuid();
+    }
+
+    protected Entity(Guid id)
+    {
+        Id = id;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (ReferenceEquals(this, obj))
+            return true;
+
+        if (obj is null || obj is not Entity other)
+            return false;
+
+        return Id == other.Id;
+    }
+
+    public override int GetHashCode() => Id.GetHashCode();
+    public static bool operator ==(Entity? a, Entity? b) => Equals(a, b);
+    public static bool operator !=(Entity? a, Entity? b) => !Equals(a, b);
+}
+
+
+==========
+File: .\Domain\Entities\Graph.cs
+==========
+
+using GraphCalc.Domain.Common;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.Domain.Entities;
+
+public class Graph : Entity
+{
+    private Graph(Guid id, NumericRange range, Guid authorId, List<GraphItem> items)
+        : base(id)
+    {
+        Range = range;
+        AuthorId = authorId;
+        Items = items;
+    }
+
+    public NumericRange Range { get; private set; }
+    public Guid AuthorId { get; private set; }
+    public List<GraphItem> Items { get; private set; } = new();
+
+    public static Graph Create(NumericRange range, Guid authorId, List<GraphItem>? items = null)
+    {
+        return new Graph(
+            Guid.NewGuid(),
+            range,
+            authorId,
+            items ?? new List<GraphItem>());
+    }
+
+    public static Graph CreateWithId(Guid id, NumericRange range, Guid authorId, List<GraphItem>? items = null)
+    {
+        return new Graph(
+            id,
+            range,
+            authorId,
+            items ?? new List<GraphItem>());
+    }
+
+    public void AddItem(GraphItem item)
+    {
+        Items.Add(item);
+    }
+
+    public void RemoveItem(GraphItem item)
+    {
+        Items.Remove(item);
+    }
+
+    public void UpdateRange(NumericRange newRange)
+    {
+        Range = newRange;
+    }
+}
+
+==========
+File: .\Domain\Entities\User.cs
+==========
+
+using GraphCalc.Domain.Common;
+
+namespace GraphCalc.Domain.Entities;
+
+public class User : Entity
+{
+    private User(Guid id, string username, string email)
+        : base(id)
+    {
+        Username = username;
+        Email = email;
+    }
+
+    public string Username { get; private set; }
+    public string Email { get; private set; }
+
+    public static User Create(string username, string email, string? description = null)
+    {
+        return new User(
+            Guid.NewGuid(),
+            username,
+            email);
+    }
+
+    public static User CreateWithId(Guid id, string username, string email)
+    {
+        return new User(id, username, email);
+    }
+}
+
+
+==========
+File: .\Domain\Interfaces\IExpressionEvaluator.cs
+==========
+
+namespace GraphCalc.Domain.Interfaces;
+
+public interface IExpressionEvaluator
+{
+    double Evaluate(String expression, double variableValue);
+    IEnumerable<double> EvaluateBatch(string expression, IEnumerable<double> variableValues);
+}
+
+
+==========
+File: .\Domain\Interfaces\IGraphAppService.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.ValueObjects;
+using GraphCalc.Api.Dtos;
+
+namespace GraphCalc.Domain.Services;
+
+public interface IGraphAppService
+{
+    IEnumerable<Graph> GetAllGraphs();
+    Graph GetGraphById(Guid id);
+    Graph CreateGraph(GraphCreateRequest request);
+    Graph CreateGraphWithAuthor(GraphCalculationRequest request, Guid authorId);
+    Graph UpdateGraph(Guid id, GraphDto graphDto);
+    void DeleteGraph(Guid id);
+    List<Series> CalculateGraph(Guid id);
+    List<Series> CalculateGraph(GraphCalculationRequest request);
+}
+
+
+==========
+File: .\Domain\Interfaces\IGraphCalculationService.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.Domain.Services;
+
+public interface IGraphCalculationService
+{
+    List<Series> Calculate(Graph graph);
+}
+
+==========
+File: .\Domain\Interfaces\IGraphCalculator.cs
+==========
+
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.Domain.Interfaces;
+
+public interface IGraphCalculator
+{
+    IEnumerable<MathPoint> Calculate(string graphItem, NumericRange range);
+}
+
+
+==========
+File: .\Domain\Interfaces\IUserAppService.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Api.Dtos;
+
+namespace GraphCalc.Domain.Services;
+
+public interface IUserAppService
+{
+    IEnumerable<User> GetAllUsers();
+    User GetUserById(Guid id);
+    User CreateUser(UserCreateRequest request);
+    User UpdateUser(Guid id, UserDto userDto);
+    void DeleteUser(Guid id);
+    IEnumerable<Graph> GetGraphsByUserId(Guid userId);
+}
+
+
+==========
+File: .\Domain\Services\GraphAppService.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.App;
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.Interfaces;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.Domain.Services;
+
+internal class GraphAppService : IGraphAppService
+{
+    private readonly IGraphRepository graphRepository;
+    private readonly GraphCalculationService graphService;
+
+    public GraphAppService(IGraphRepository graphRepository, GraphCalculationService graphService)
+    {
+        this.graphRepository = graphRepository;
+        this.graphService = graphService;
+    }
+
+    public IEnumerable<Graph> GetAllGraphs()
+    {
+        var graphs = graphRepository.GetAll();
+        return graphs;
+    }
+
+    public Graph GetGraphById(Guid id)
+    {
+        var graph = graphRepository.GetById(id);
+        return graph;
+    }
+
+    public Graph CreateGraph(GraphCreateRequest request)
+    {
+        var graph = request.ToDomain();
+        graphRepository.Add(graph);
+        return graph;
+    }
+
+    public Graph CreateGraphWithAuthor(GraphCalculationRequest request, Guid authorId)
+    {
+        var graph = request.ToDomain(authorId);
+        graphRepository.Add(graph);
+        return graph;
+    }
+
+    public Graph UpdateGraph(Guid id, GraphDto graphDto)
+    {
+        var existingGraph = graphRepository.GetById(id);
+        var updatedGraph = Graph.CreateWithId(
+            id,
+            graphDto.Range.ToDomain(),
+            graphDto.AuthorId,
+            graphDto.Items.ToDomain().ToList());
+
+        graphRepository.Update(updatedGraph);
+        return updatedGraph;
+    }
+
+    public void DeleteGraph(Guid id)
+    {
+        graphRepository.Delete(id);
+    }
+
+    public List<Series> CalculateGraph(Guid id)
+    {
+        var graph = graphRepository.GetById(id);
+        var response = graphService.Calculate(graph);
+        return response;
+    }
+
+    public List<Series> CalculateGraph(GraphCalculationRequest request)
+    {
+        var graph = request.ToDomain(Guid.Empty);
+        var response = graphService.Calculate(graph);
+        return response;
+    }
+}
+
+
+==========
+File: .\Domain\Services\GraphCalculationService.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.ValueObjects;
+using GraphCalc.Domain.Interfaces;
+
+namespace GraphCalc.Domain.Services;
+
+internal class GraphCalculationService
+{
+    private readonly IGraphCalculator graphCalculator;
+
+    public GraphCalculationService(IGraphCalculator graphCalculator)
+    {
+        this.graphCalculator = graphCalculator ?? throw new ArgumentNullException(nameof(graphCalculator));
+    }
+
+    public List<Series> Calculate(Graph graph)
+    {
+        var results = new List<Series>();
+
+        foreach (var item in graph.Items)
+        {
+            if (!item.IsVisible)
+                results.Add(new Series(item.Expression, Array.Empty<MathPoint>()));
+
+            var points = graphCalculator.Calculate(item.Expression, graph.Range).ToList();
+            results.Add(new Series(item.Expression, points));
+        }
+
+        return results;
+    }
+}
+
+==========
+File: .\Domain\Services\UserAppService.cs
+==========
+
+using GraphCalc.Api.Dtos;
+using GraphCalc.App;
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.Interfaces;
+
+namespace GraphCalc.Domain.Services;
+
+internal class UserAppService : IUserAppService
+{
+    private readonly IUserRepository userRepository;
+    private readonly IGraphRepository graphRepository;
+
+    public UserAppService(IUserRepository userRepository, IGraphRepository graphRepository)
+    {
+        this.userRepository = userRepository;
+        this.graphRepository = graphRepository;
+    }
+
+    public IEnumerable<User> GetAllUsers()
+    {
+        var users = userRepository.GetAll();
+        return users;
+    }
+
+    public User GetUserById(Guid id)
+    {
+        var user = userRepository.GetById(id);
+        return user;
+    }
+
+    public User CreateUser(UserCreateRequest request)
+    {
+        var user = request.ToDomain();
+        userRepository.Add(user);
+        return user;
+    }
+
+    public User UpdateUser(Guid id, UserDto userDto)
+    {
+        var existingUser = userRepository.GetById(id);
+        var updatedUser = User.CreateWithId(id, userDto.Username, userDto.Email);
+        userRepository.Update(updatedUser);
+        return updatedUser;
+    }
+
+    public void DeleteUser(Guid id)
+    {
+        userRepository.Delete(id);
+    }
+
+    public IEnumerable<Graph> GetGraphsByUserId(Guid userId)
+    {
+        var graphs = graphRepository.GetByUserId(userId);
+        return graphs;
+    }
+}
+
+
+==========
+File: .\Domain\ValueObjects\GraphItem.cs
+==========
+
+namespace GraphCalc.Domain.ValueObjects;
+
+public record GraphItem(
+    string Expression, 
+    bool IsVisible = true
+);
+
+==========
+File: .\Domain\ValueObjects\MathPoint.cs
+==========
+
+namespace GraphCalc.Domain.ValueObjects;
+
+public record MathPoint(double X, double Y);
+
+
+==========
+File: .\Domain\ValueObjects\NumericRange.cs
+==========
+
+namespace GraphCalc.Domain.ValueObjects;
+
+public record NumericRange(double Min, double Max, double Step = 1.0);
+
+==========
+File: .\Domain\ValueObjects\Series.cs
+==========
+
+namespace GraphCalc.Domain.ValueObjects;
+
+public record Series(
+    string Expression,
+    IEnumerable<MathPoint> Points
+);
+
+==========
+File: .\Infra\ExpressionEvaluator\CodingSebExpressionEvaluator.cs
+==========
+
+using GraphCalc.Domain.Interfaces;
+using CodingSeb.ExpressionEvaluator;
+
+namespace GraphCalc.Infra.ExpressionEvaluation;
+
+/// <summary>
+/// Implement IExpressionEvaluator using CodingSeb.ExpressionEvaluator
+/// https://github.com/codingseb/ExpressionEvaluator
+/// </summary>
+internal sealed class CodingSebExpressionEvaluator : IExpressionEvaluator
+{
+    private readonly ExpressionEvaluator evaluator;
+    private readonly object locker = new();
+    private const string DefaultVariableName = "x";
+
+    public CodingSebExpressionEvaluator()
+    {
+        evaluator = new ExpressionEvaluator
+        {
+            OptionCaseSensitiveEvaluationActive = false,
+            OptionForceIntegerNumbersEvaluationsAsDoubleByDefault = true
+        };
+
+        ConfigureMathFunctions();
+    }
+
+    private void ConfigureMathFunctions()
+    {
+        evaluator.Variables["pi"] = Math.PI;
+        evaluator.Variables["e"] = Math.E;
+    }
+
+    public double Evaluate(string expression, double variableValue)
+    {
+        lock (locker)
+        {
+            evaluator.Variables[DefaultVariableName] = variableValue;
+            
+            try
+            {
+                var result = evaluator.Evaluate(expression);
+                var doubleResult = Convert.ToDouble(result);
+                return doubleResult;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to evaluate expression: '{expression}'", ex);
+            }
+        }
+    }
+
+    public IEnumerable<double> EvaluateBatch(string expression, IEnumerable<double> variableValues)
+    {
+        foreach (var value in variableValues)
+            yield return Evaluate(expression, value);
+    }
+}
+
+
+==========
+File: .\Infra\GraphCalculator\SimpleGraphCalculator.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.Interfaces;
+using GraphCalc.Domain.ValueObjects;
+
+namespace GraphCalc.Infra.GraphCalculation;
+
+internal sealed class SimpleGraphCalculator : IGraphCalculator
+{
+    private readonly IExpressionEvaluator evaluator;
+
+    public SimpleGraphCalculator(IExpressionEvaluator evaluator)
+    {
+        this.evaluator = evaluator ?? throw new ArgumentNullException(nameof(evaluator));
+    }
+
+    public IEnumerable<MathPoint> Calculate(string Expression, NumericRange range)
+    {
+        for (double x = range.Min; x <= range.Max; x += range.Step)
+        {
+            MathPoint? point = null;
+            try
+            {
+                double y = evaluator.Evaluate(Expression, x);
+
+                if (!double.IsInfinity(y) && !double.IsNaN(y))
+                    point = new MathPoint(x, y);
+            }
+            catch (Exception)
+            {
+            }
+
+            if (point != null)
+                yield return point;
+        }
+    }
+}
+
+
+==========
+File: .\Infra\Repositories\InMemoryGraphRepository.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.Interfaces;
+
+namespace GraphCalc.Infra.Repositories;
+
+internal class InMemoryGraphRepository : InMemoryRepository<Graph>, IGraphRepository
+{
+    public IEnumerable<Graph> GetByUserId(Guid userId)
+    {
+        return entities.Values
+            .Where(graph => graph.AuthorId == userId)
+            .AsEnumerable();
+    }
+}
+
+==========
+File: .\Infra\Repositories\InMemoryRepository.cs
+==========
+
+using GraphCalc.Domain.Common;
+using GraphCalc.Domain.Interfaces;
+using System.Collections.Concurrent;
+
+namespace GraphCalc.Infra.Repositories;
+
+internal class InMemoryRepository<TEntity> : IRepository<TEntity> where TEntity : Entity
+{
+    protected readonly ConcurrentDictionary<Guid, TEntity> entities = new();
+
+    public virtual IEnumerable<TEntity> GetAll()
+    {
+        return entities.Values.AsEnumerable();
+    }
+
+    public virtual TEntity GetById(Guid id)
+    {
+        if (entities.TryGetValue(id, out var entity))
+            return entity;
+
+        throw new KeyNotFoundException($"Entity with id {id} not found.");
+    }
+
+    public virtual void Add(TEntity entity)
+    {
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        
+        entities.TryAdd(entity.Id, entity);
+    }
+
+    public virtual void Update(TEntity entity)
+    {
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        
+        if (!entities.ContainsKey(entity.Id))
+            throw new KeyNotFoundException($"Entity with id {entity.Id} not found.");
+        
+        entities[entity.Id] = entity;
+    }
+
+    public virtual void Delete(Guid id)
+    {
+        if (!entities.ContainsKey(id))
+            throw new KeyNotFoundException($"Entity with id {id} not found.");
+        
+        entities.TryRemove(id, out _);
+    }
+}
+
+==========
+File: .\Infra\Repositories\InMemoryUserRepository.cs
+==========
+
+using GraphCalc.Domain.Entities;
+using GraphCalc.Domain.Interfaces;
+
+namespace GraphCalc.Infra.Repositories;
+
+internal class InMemoryUserRepository : InMemoryRepository<User>, IUserRepository
+{
+    public User GetByEmail(string email)
+    {
+        return entities.Values
+            .FirstOrDefault(user => user.Email.Equals(email, StringComparison.OrdinalIgnoreCase))
+            ?? throw new KeyNotFoundException($"User with email {email} not found.");
+    }
+}
+
+==========
+File: .\Infra\Repositories\Interfaces\IGraphRepository.cs
+==========
+
+using GraphCalc.Domain.Entities;
+
+namespace GraphCalc.Domain.Interfaces;
+
+public interface IGraphRepository : IRepository<Graph>
+{
+    IEnumerable<Graph> GetByUserId(Guid userId);
+}
+
+
+==========
+File: .\Infra\Repositories\Interfaces\IRepository.cs
+==========
+
+using GraphCalc.Domain.Common;
+
+namespace GraphCalc.Domain.Interfaces;
+
+public interface IRepository<TEntity> where TEntity : Entity
+{
+    IEnumerable<TEntity> GetAll();
+    TEntity GetById(Guid id);
+    void Add(TEntity entity);   
+    void Update(TEntity entity);
+    void Delete(Guid id);
+}
+
+
+==========
+File: .\Infra\Repositories\Interfaces\IUserRepository.cs
+==========
+
+using GraphCalc.Domain.Entities;
+
+namespace GraphCalc.Domain.Interfaces;
+
+public interface IUserRepository : IRepository<User>
+{
+    User GetByEmail(string email);
+}
+

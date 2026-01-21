@@ -5,12 +5,12 @@ using GraphCalc.Domain.Interfaces;
 
 namespace GraphCalc.Domain.Services;
 
-internal class UserAppService : IUserAppService
+internal class UserService : IUserService
 {
     private readonly IUserRepository userRepository;
     private readonly IGraphRepository graphRepository;
 
-    public UserAppService(IUserRepository userRepository, IGraphRepository graphRepository)
+    public UserService(IUserRepository userRepository, IGraphRepository graphRepository)
     {
         this.userRepository = userRepository;
         this.graphRepository = graphRepository;
@@ -28,17 +28,15 @@ internal class UserAppService : IUserAppService
         return user;
     }
 
-    public User CreateUser(UserCreateRequest request)
+    public User CreateUser(User user)
     {
-        var user = request.ToDomain();
         userRepository.Add(user);
         return user;
     }
 
-    public User UpdateUser(Guid id, UserDto userDto)
+    public User UpdateUser(Guid id, User user)
     {
-        var existingUser = userRepository.GetById(id);
-        var updatedUser = User.CreateWithId(id, userDto.Username, userDto.Email);
+        var updatedUser = User.CreateWithId(id, user.Username, user.Email);
         userRepository.Update(updatedUser);
         return updatedUser;
     }

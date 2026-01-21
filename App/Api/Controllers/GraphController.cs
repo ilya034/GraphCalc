@@ -9,9 +9,9 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/graphs")]
 public class GraphController : ControllerBase
 {
-    private readonly IGraphAppService graphAppService;
+    private readonly IGraphService graphAppService;
 
-    public GraphController(IGraphAppService graphAppService)
+    public GraphController(IGraphService graphAppService)
     {
         this.graphAppService = graphAppService;
     }
@@ -37,7 +37,8 @@ public class GraphController : ControllerBase
     {
         ValidateGraphCalculationRequest(request);
         ValidateGuid(authorId, nameof(authorId));
-        var createdGraph = graphAppService.CreateGraphWithAuthor(request, authorId);
+        var graph = request.ToDomain(authorId);
+        var createdGraph = graphAppService.CreateGraph(graph);
         var createdGraphDto = createdGraph.ToDto();
         return CreatedAtAction(nameof(GetGraphById), new { id = createdGraphDto.Id }, createdGraphDto);
     }
@@ -47,7 +48,8 @@ public class GraphController : ControllerBase
     {
         ValidateGuid(id, nameof(id));
         ValidateGraphDto(graphDto);
-        var updatedGraph = graphAppService.UpdateGraph(id, graphDto);
+        var graph = graphDto.ToDomain();
+        var updatedGraph = graphAppService.UpdateGraph(id, graph);
         var updatedGraphDto = updatedGraph.ToDto();
         return Ok(updatedGraphDto);
     }
@@ -71,7 +73,8 @@ public class GraphController : ControllerBase
     public IActionResult CalculateGraph([FromBody] GraphCalculationRequest request)
     {
         ValidateGraphCalculationRequest(request);
-        var series = graphAppService.CalculateGraph(request);
+        var graph = request.ToDomain(Guid.Empty);
+        var series = graphAppService.CalculateGraph(graph);
         var dto = new GraphCalculationResponse(series.ToDto().ToList());
         return Ok(dto);
     }

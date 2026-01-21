@@ -6,12 +6,12 @@ using GraphCalc.Domain.ValueObjects;
 
 namespace GraphCalc.Domain.Services;
 
-internal class GraphAppService : IGraphAppService
+internal class GraphService : IGraphService
 {
     private readonly IGraphRepository graphRepository;
     private readonly GraphCalculationService graphService;
 
-    public GraphAppService(IGraphRepository graphRepository, GraphCalculationService graphService)
+    public GraphService(IGraphRepository graphRepository, GraphCalculationService graphService)
     {
         this.graphRepository = graphRepository;
         this.graphService = graphService;
@@ -29,29 +29,16 @@ internal class GraphAppService : IGraphAppService
         return graph;
     }
 
-    public Graph CreateGraph(GraphCreateRequest request)
+    public Graph CreateGraph(Graph graph)
     {
-        var graph = request.ToDomain();
         graphRepository.Add(graph);
         return graph;
     }
 
-    public Graph CreateGraphWithAuthor(GraphCalculationRequest request, Guid authorId)
+    public Graph UpdateGraph(Guid id, Graph graph)
     {
-        var graph = request.ToDomain(authorId);
-        graphRepository.Add(graph);
-        return graph;
-    }
-
-    public Graph UpdateGraph(Guid id, GraphDto graphDto)
-    {
-        var existingGraph = graphRepository.GetById(id);
-        var updatedGraph = Graph.CreateWithId(
-            id,
-            graphDto.Range.ToDomain(),
-            graphDto.AuthorId,
-            graphDto.Items.ToDomain().ToList());
-
+        // ensure the domain model has the correct id
+        var updatedGraph = Graph.CreateWithId(id, graph.Range, graph.AuthorId, graph.Items.ToList());
         graphRepository.Update(updatedGraph);
         return updatedGraph;
     }
@@ -68,9 +55,8 @@ internal class GraphAppService : IGraphAppService
         return response;
     }
 
-    public List<Series> CalculateGraph(GraphCalculationRequest request)
+    public List<Series> CalculateGraph(Graph graph)
     {
-        var graph = request.ToDomain(Guid.Empty);
         var response = graphService.Calculate(graph);
         return response;
     }

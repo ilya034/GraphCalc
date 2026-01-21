@@ -22,8 +22,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<IGraphAppService, GraphAppService>();
-builder.Services.AddScoped<IUserAppService, UserAppService>();
+builder.Services.AddScoped<IGraphService, GraphService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddScoped<GraphCalculationService>();
 

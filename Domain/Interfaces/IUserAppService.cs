@@ -1,14 +1,13 @@
 using GraphCalc.Domain.Entities;
-using GraphCalc.Api.Dtos;
 
 namespace GraphCalc.Domain.Services;
 
-public interface IUserAppService
+public interface IUserService
 {
     IEnumerable<User> GetAllUsers();
     User GetUserById(Guid id);
-    User CreateUser(UserCreateRequest request);
-    User UpdateUser(Guid id, UserDto userDto);
+    User CreateUser(User user);
+    User UpdateUser(Guid id, User user);
     void DeleteUser(Guid id);
     IEnumerable<Graph> GetGraphsByUserId(Guid userId);
 }

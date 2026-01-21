@@ -9,9 +9,9 @@ namespace GraphCalc.Api.Controllers;
 [Route("api/users")]
 public class UserController : ControllerBase
 {
-    private readonly IUserAppService userAppService;
+    private readonly IUserService userAppService;
 
-    public UserController(IUserAppService userAppService)
+    public UserController(IUserService userAppService)
     {
         this.userAppService = userAppService;
     }
@@ -36,7 +36,8 @@ public class UserController : ControllerBase
     public IActionResult CreateUser([FromBody] UserCreateRequest request)
     {
         ValidateUserCreateRequest(request);
-        var createdUser = userAppService.CreateUser(request);
+        var user = request.ToDomain();
+        var createdUser = userAppService.CreateUser(user);
         var createdUserDto = createdUser.ToDto();
         return CreatedAtAction(nameof(GetUserById), new { id = createdUserDto.Id }, createdUserDto);
     }
@@ -46,7 +47,8 @@ public class UserController : ControllerBase
     {
         ValidateGuid(id, nameof(id));
         ValidateUserDto(userDto);
-        var updatedUser = userAppService.UpdateUser(id, userDto);
+        var user = userDto.ToDomain();
+        var updatedUser = userAppService.UpdateUser(id, user);
         var updatedUserDto = updatedUser.ToDto();
         return Ok(updatedUserDto);
     }
