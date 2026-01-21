@@ -23,15 +23,8 @@ public class UserAppService
 
     public UserDto GetUserById(Guid id)
     {
-        try
-        {
-            var user = userRepository.GetById(id);
-            return user.ToDto();
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        var user = userRepository.GetById(id);
+        return user.ToDto();
     }
 
     public UserDto CreateUser(UserCreateRequest request)
@@ -43,29 +36,15 @@ public class UserAppService
 
     public UserDto UpdateUser(Guid id, UserDto userDto)
     {
-        try
-        {
-            var existingUser = userRepository.GetById(id);
-            var updatedUser = User.CreateWithId(id, userDto.Username, userDto.Email);
-            userRepository.Update(updatedUser);
-            return updatedUser.ToDto();
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        var existingUser = userRepository.GetById(id);
+        var updatedUser = User.CreateWithId(id, userDto.Username, userDto.Email);
+        userRepository.Update(updatedUser);
+        return updatedUser.ToDto();
     }
 
     public void DeleteUser(Guid id)
     {
-        try
-        {
-            userRepository.Delete(id);
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        userRepository.Delete(id);
     }
 
     public IEnumerable<GraphDto> GetGraphsByUserId(Guid userId)

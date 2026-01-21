@@ -24,15 +24,8 @@ public class GraphAppService
 
     public GraphDto GetGraphById(Guid id)
     {
-        try
-        {
-            var graph = graphRepository.GetById(id);
-            return graph.ToDto();
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        var graph = graphRepository.GetById(id);
+        return graph.ToDto();
     }
 
     public GraphDto CreateGraph(GraphCreateRequest request)
@@ -51,48 +44,27 @@ public class GraphAppService
 
     public GraphDto UpdateGraph(Guid id, GraphDto graphDto)
     {
-        try
-        {
-            var existingGraph = graphRepository.GetById(id);
-            var updatedGraph = Graph.CreateWithId(
-                id,
-                graphDto.Range.ToDomain(),
-                graphDto.AuthorId,
-                graphDto.Items.ToDomain().ToList());
+        var existingGraph = graphRepository.GetById(id);
+        var updatedGraph = Graph.CreateWithId(
+            id,
+            graphDto.Range.ToDomain(),
+            graphDto.AuthorId,
+            graphDto.Items.ToDomain().ToList());
 
-            graphRepository.Update(updatedGraph);
-            return updatedGraph.ToDto();
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        graphRepository.Update(updatedGraph);
+        return updatedGraph.ToDto();
     }
 
     public void DeleteGraph(Guid id)
     {
-        try
-        {
-            graphRepository.Delete(id);
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        graphRepository.Delete(id);
     }
 
     public GraphCalculationResponse CalculateGraph(Guid id)
     {
-        try
-        {
-            var graph = graphRepository.GetById(id);
-            var response = graphService.Calculate(graph);
-            return new GraphCalculationResponse(response.ToDto().ToList());
-        }
-        catch (KeyNotFoundException)
-        {
-            throw;
-        }
+        var graph = graphRepository.GetById(id);
+        var response = graphService.Calculate(graph);
+        return new GraphCalculationResponse(response.ToDto().ToList());
     }
 
     public GraphCalculationResponse CalculateGraph(GraphCalculationRequest request)
