@@ -20,7 +20,10 @@ internal class GraphCalculationService
         foreach (var item in graph.Items)
         {
             if (!item.IsVisible)
+            {
                 results.Add(new Series(item.Expression, Array.Empty<MathPoint>()));
+                continue;
+            }
 
             var points = graphCalculator.Calculate(item.Expression, graph.Range).ToList();
             results.Add(new Series(item.Expression, points));

@@ -27,8 +27,9 @@ internal sealed class SimpleGraphCalculator : IGraphCalculator
             }
             catch (Exception ex)
             {
-                // Log and continue: a single point evaluation failure shouldn't break the whole calculation.
-                System.Diagnostics.Debug.WriteLine($"Evaluation error for x={x}: {ex.Message}");
+                // Rethrow as InvalidOperationException so API middleware
+                // will translate it into an ErrorResponse (Bad Request).
+                throw new InvalidOperationException($"Evaluation error for expression '{Expression}' at x={x}: {ex.Message}", ex);
             }
 
             if (point != null)
